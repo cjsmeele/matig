@@ -5,6 +5,12 @@
 #include <string>
 #include <sstream>
 
+class SyntaxError : public std::runtime_error {
+public:
+    SyntaxError(const std::string &s)
+        : std::runtime_error("Syntax error: " + s) { }
+};
+
 struct Token {
     enum class Type {
         NONE,
@@ -14,7 +20,7 @@ struct Token {
         ATOM_NUMERIC,
         ATOM_SYMBOL,
         QUOTE,
-    } type;
+        } type = Type::NONE;
 
     std::string content;
 };
@@ -40,59 +46,102 @@ struct Node {
     int valueInt;
 };
 
-std::vector<Token> tokenize(const std::string &text) {
+/**
+ * \brief Tokenize one textual expression.
+ */
+static std::vector<Token> tokenize(std::istream &stream) {
+
     std::vector<Token> tokens;
+    int listLevel = 0;
 
-    try {
-        auto isBreak = [](char c) -> bool {
-            return (c < ' '
-                    || c == ' '
-                    || c == '('
-                    || c == ')');
-        };
-        auto isBreakAt = [&text, &isBreak](size_t i) -> bool {
-            if (i >= text.length())
-                return true;
-            return isBreak(text[i]);
-        };
+    class EndOfInput { };
 
-        size_t i = 0;
+    auto next = [&](bool required) {
         char c;
+        if (stream.get(c)) {
+            return c;
+        } else if (listLevel) {
+            throw SyntaxError("Unexpected EOF while reading list expression");
+        } else if (required) {
+            throw SyntaxError("Unexpected EOF while reading expression");
+        } else {
+            throw EndOfInput();
+        }
+    };
 
-        auto next = [&text, &i, &c]() {
-            i++;
-            if (i < text.length())
-                c = text[i];
-            else
+    auto isBreak = [](char c) -> bool {
+        return (c < ' '
+                || isspace(c)
+                || c == '('
+                || c == ')');
+    };
+
+    char c = '\0';
+
+    while (true) {
+        try {
+            if (!c)
+                c = next(false);
+
+            // Skip whitespace.
+            if (isspace(c)) {
                 c = '\0';
-        };
-
-        while (i < text.length()) {
-            Token token;
-
-            // Parse a token and leave i to point at the start of the
-            // next token.
-
-            c = text[i];
-
-            if (c == ';') {
-                for (; i < text.length() && c != '\n'; next());
                 continue;
-            } else if (c >= '0' && c <= '9') {
-                token.type = Token::Type::ATOM_NUMERIC;
+            }
 
-                for (; !isBreak(c); next()) {
-                    if (c < '0' || c > '9')
-                        throw std::runtime_error("Parse error: Invalid numeric");
+            // Skip comments.
+            if (c == ';') {
+                while (next(false) != '\n');
+                c = '\0';
+                continue;
+            }
+        } catch (EndOfInput &e) {
+            break;
+        }
+
+        Token token;
+
+        try {
+            // Parse one token.
+            // At the end of this if/elseif chain, exactly one
+            // character has been read beyond the end of the token.
+
+            if (c == '(') {
+                token.type = Token::Type::LIST_START;
+                token.content = c;
+
+                listLevel++;
+
+                c = next(false);
+
+            } else if (c == ')') {
+                token.type = Token::Type::LIST_END;
+                token.content = c;
+
+                listLevel--;
+                if (listLevel < 0)
+                    throw SyntaxError("Unexpected end of list while reading atom expression");
+
+                c = next(false);
+
+            } else if (isdigit(c)) {
+                token.type = Token::Type::ATOM_NUMERIC;
+                token.content = c;
+
+                while (isdigit(c = next(false)))
                     token.content += c;
-                }
+
+                if (!isBreak(c))
+                    throw SyntaxError("Invalid numeric");
+
             } else if (c == '"') {
                 token.type = Token::Type::ATOM_STRING;
-                c = text.at(++i);
 
-                bool inEscape = false;
-                for (; c; next()) {
-                    if (inEscape) {
+                while (true) {
+                    c = next(true);
+
+                    if (c == '\\') {
+                        c = next(true);
                         if (c == 'n')
                             token.content += '\n';
                         else if (c == 'r')
@@ -103,42 +152,49 @@ std::vector<Token> tokenize(const std::string &text) {
                             token.content += '\v';
                         else
                             token.content += c;
-                        inEscape = false;
                     } else {
-                        if (c == '\\') {
-                            inEscape = true;
-                        } else {
-                            if (c == '"') {
-                                i++;
-                                break;
-                            }
+                        if (c == '"')
+                            break;
+                        else
                             token.content += c;
-                        }
                     }
                 }
-            } else if (c == '(') {
-                token.type = Token::Type::LIST_START;
-                token.content += c;
-                i++;
-            } else if (c == ')') {
-                token.type = Token::Type::LIST_END;
-                token.content += c;
-                i++;
-            } else if (isBreak(c)) {
-                i++;
-                continue;
-            } else {
-                token.type = Token::Type::ATOM_SYMBOL;
 
-                for (; !isBreak(c); next()) {
+                c = next(false);
+                if (!isBreak(c))
+                    throw SyntaxError("Invalid string");
+
+            } else if (c > ' '){
+                token.type    = Token::Type::ATOM_SYMBOL;
+                token.content = c;
+
+                while (!isBreak((c = next(false))))
                     token.content += c;
-                }
+
+            } else {
+                throw SyntaxError("Unexpected text");
             }
-            
-            tokens.emplace_back(token);
+
+            // End of token.
+            tokens.push_back(token);
+
+            if (listLevel == 0) {
+                // We have a complete expression (a complete list or one atom).
+                // We haven't reached the end of the stream yet.
+                stream.putback(c);
+                break;
+            }
+
+        } catch (EndOfInput &e) {
+            // We've reached the end of the stream at the end of a
+            // token, while at the top listlevel.
+
+            if (token.type == Token::Type::NONE)
+                throw std::logic_error("Got empty token");
+
+            tokens.push_back(token);
+            break;
         }
-    } catch (std::out_of_range &e) {
-        throw;
     }
 
     return tokens;
@@ -155,8 +211,13 @@ public:
 
 #include <stack>
 
-std::vector<Node> read(const std::string &text) {
-    auto tokens = tokenize(text);
+/**
+ * \brief Read one textual expression into an AST node.
+ */
+static Node read(std::istream &stream) {
+
+    std::vector<Token> tokens = tokenize(stream);
+
     std::vector<Node> nodes;
     std::stack <Node> context;
 
@@ -164,7 +225,7 @@ std::vector<Node> read(const std::string &text) {
 
     std::vector<Node> *container = &nodes;
 
-    for (auto t : tokens) {
+    for (const auto &t : tokens) {
         std::cout << (int)t.type << ": " << t.content << "\n";
         if (t.type == Token::Type::LIST_START) {
             if (currentList.type != Node::Type::NONE) {
@@ -176,7 +237,7 @@ std::vector<Node> read(const std::string &text) {
 
         } else if (t.type == Token::Type::LIST_END) {
             if (currentList.type == Node::Type::NONE)
-                throw std::runtime_error("Unmatched closing paren");
+                throw SyntaxError("Unmatched closing paren");
 
             if (context.empty()) {
                 nodes.emplace_back(currentList);
@@ -209,10 +270,16 @@ std::vector<Node> read(const std::string &text) {
             container->emplace_back(node);
         }
     }
-    return nodes;
+
+    if (nodes.size() == 1)
+        return nodes[0];
+    else if (nodes.size() == 0)
+        return Node();
+    else
+        throw std::logic_error("Read more than one node");
 }
 
-Node eval(const Node &node) {
+static Node eval(const Node &node) {
     if (node.type == Node::Type::LIST) {
         return Node { Node::Type::ATOM,
                 Node::AtomType::STRING,
@@ -226,11 +293,11 @@ Node eval(const Node &node) {
             return node;
         }
     } else {
-        throw std::runtime_error("Invalid node type");
+        throw std::logic_error("Invalid node type");
     }
 }
 
-void print(const Node &node, int depth = 0) {
+static void print(const Node &node, int depth = 0) {
 
     std::string indent;
     indent.resize(depth, ' ');
@@ -252,22 +319,20 @@ void print(const Node &node, int depth = 0) {
     std::cout << "\n";
 }
 
+#include <unistd.h>
+
 int main(int argc, char **argv) {
 
-    std::string input;
-
     while (true) {
-        int c = fgetc(stdin);
-        if (c <= 0)
+        if (isatty(fileno(stdin))) {
+            std::cout << "MATIG> ";
+            std::cout.flush();
+        }
+        auto node = read(std::cin);
+        if (node.type == Node::Type::NONE)
             break;
 
-        input += c;
-    }
-
-    input += '\n';
-
-    auto nodes = read(input);
-    for (const auto &node : nodes) {
+        // print(eval(node));
         print(node);
     }
 

@@ -8,14 +8,13 @@ enable_testing()
 set(warnings
     "-Wall"
     "-Wextra"
-    "-Wall"
-    "-Wextra"
-    "-Wpedantic"
+    "-pedantic-errors"
     "-Wcast-align"
     "-Wmissing-declarations"
     "-Wredundant-decls"
     "-Wuninitialized"
-    "-Wno-unused-parameter")
+    "-Wno-unused-parameter"
+    "-Wno-missing-field-initializers")
 
 set(cxxflags
     "-std=c++14"
