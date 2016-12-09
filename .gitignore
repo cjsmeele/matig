@@ -1,0 +1,9 @@
+.build
+*~*
+\*\#*
+*.swp
+GPATH
+GRTAGS
+GSYMS
+GTAGS
+tags

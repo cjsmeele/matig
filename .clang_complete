@@ -1,0 +1,12 @@
+-I.
+-I./src
+-I./include
+-Wall
+-Wextra
+-Wpedantic
+-Wcast-align
+-Wmissing-declarations
+-Wredundant-decls
+-Wuninitialized
+-Wno-unused-parameter
+-std=c++14
