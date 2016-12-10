@@ -84,6 +84,12 @@ public:
     std::string repr() const override {
         return std::to_string(value);
     }
+
+    // XXX Temporary.
+    int64_t getValue() const {
+        return value;
+    }
+    
     Eptr eval(Environment &env) const override {
         return std::make_unique<NumericExpression>(value);
     }
@@ -214,14 +220,26 @@ public:
 Environment::Environment(Environment *parent)
     : parent(parent) {
 
-    // XXX
+    // XXX This is all temporary hacks.
 
     static FunctionBuiltin f([](std::vector<Eptr> parameters, Environment &env) {
             std::cout << parameters.at(0)->repr() << "\n";
             return std::move(parameters.at(0));
         });
+
+    static FunctionBuiltin f2([](std::vector<Eptr> parameters, Environment &env) {
+            int64_t result = 0;
+            for (const auto &expr : parameters) {
+                auto numExpr = dynamic_cast<NumericExpression*>(expr.get());
+                if (!numExpr)
+                    throw std::runtime_error("Parameter is not numeric");
+                result += numExpr->getValue();
+            }
+            return std::make_unique<NumericExpression>(result);
+        });
     
     set("print", { nullptr, &f });
+    set("+", { nullptr, &f2 });
 }
 
 /**
