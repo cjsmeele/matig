@@ -500,11 +500,15 @@ int main(int argc, char **argv) {
             std::cout << "MATIG> ";
             std::cout.flush();
         }
-        auto expr = read(std::cin);
-        if (!expr)
-            break;
+        try {
+            auto expr = read(std::cin);
+            if (!expr)
+                break;
 
-        print(*eval(*expr));
+            print(*eval(*expr));
+        } catch (std::runtime_error &e) {
+            std::cerr << "ERR: " << e.what() << "\n";
+        }
     }
 
     return 0;
