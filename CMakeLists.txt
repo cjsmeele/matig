@@ -9,6 +9,7 @@ set(warnings
     "-Wall"
     "-Wextra"
     "-pedantic-errors"
+    "-Wfatal-errors"
     "-Wcast-align"
     "-Wmissing-declarations"
     "-Wredundant-decls"

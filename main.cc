@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <string>
 #include <sstream>
+#include <map>
+#include <memory>
 
 class SyntaxError : public std::runtime_error {
 public:
@@ -25,26 +27,202 @@ struct Token {
     std::string content;
 };
 
-struct Node {
-    enum class Type {
-        NONE = 0,
-        LIST,
-        ATOM,
-    } type;
+class Expression;
+class Function;
 
-    enum class AtomType {
-        NONE = 0,
-        STRING,
-        INTEGER,
-        FLOAT,
-        SYMBOL,
-    } atomType;
-
-    std::vector<Node> children;
-    std::string valueSymbol;
-    std::string valueString;
-    int valueInt;
+struct Symbol {
+    // std::string asSymbol;
+    // std::string asString;
+    // int64_t     asInt;
+    Expression  *asExpression;
+    Function    *asFunction;
 };
+
+class Environment {
+    std::map<std::string, Symbol> symbols;
+    Environment *parent;
+public:
+    Symbol &lookup(const std::string &name) {
+        auto it = symbols.find(name);
+        if (it == symbols.end()) {
+            if (parent)
+                return parent->lookup(name);
+            else 
+                throw std::runtime_error("Symbol does not exist");
+        } else {
+            return it->second;
+        }
+    }
+
+    void set(const std::string &name, const Symbol &value) {
+        symbols[name] = value;
+    }
+
+    // Environment(Environment *parent = nullptr)
+    //     : parent(parent) {
+    // }
+    Environment(Environment *parent = nullptr);
+};
+
+class Expression;
+typedef std::unique_ptr<Expression> Eptr;
+
+class Expression {
+public:
+    virtual std::string repr() const = 0;
+    virtual Eptr eval(Environment &env) const = 0;
+    virtual ~Expression() = default;
+};
+
+class AtomExpression : public Expression { };
+
+class NumericExpression : public AtomExpression {
+
+    int64_t value;
+
+public:
+    std::string repr() const override {
+        return std::to_string(value);
+    }
+    Eptr eval(Environment &env) const override {
+        return std::make_unique<NumericExpression>(value);
+    }
+
+    NumericExpression(int64_t value)
+        : value(value) { }
+};
+
+class StringExpression : public AtomExpression {
+
+    std::string value;
+
+public:
+    std::string repr() const override {
+        // TODO: Escaping.
+        return std::string("\"") + value + '"';
+    }
+    Eptr eval(Environment &env) const override {
+        return std::make_unique<StringExpression>(value);
+    }
+
+    StringExpression(const std::string &value)
+        : value(value) { }
+};
+
+class SymbolExpression : public AtomExpression {
+
+    std::string value;
+
+public:
+    std::string repr() const override {
+        return value;
+    }
+    Eptr eval(Environment &env) const override {
+        return std::make_unique<SymbolExpression>(value);
+    }
+
+    SymbolExpression(const std::string &value)
+        : value(value) { }
+};
+
+class Function {
+public:
+    virtual Eptr operator()(std::vector<Eptr> parameters,
+                       Environment &env) = 0;
+
+    virtual ~Function() = default;
+};
+
+class FunctionBuiltin : public Function {
+    typedef std::function<Eptr (std::vector<Eptr>, Environment&)> F;
+
+    F func;
+
+public:
+    Eptr operator()(std::vector<Eptr> parameters,
+                    Environment &env) {
+
+        return func(std::move(parameters), env);
+    }
+
+    FunctionBuiltin(F func)
+        : func(func) { }
+};
+
+class FunctionLisp : public Function {
+
+public:
+    Eptr operator()(std::vector<Eptr> parameters,
+                    Environment &env) {
+        return std::make_unique<NumericExpression>(42);
+    }
+};
+
+class ListExpression : public Expression {
+
+    std::vector<Eptr> children;
+
+public:
+    std::string repr() const override {
+        if (children.size()) {
+            // return "<list>";
+            std::string s = "(";
+            for (const auto &child : children)
+                s += child->repr() + " ";
+            if (s[s.length()-1] == ' ')
+                s.erase(s.end()-1);
+            s += ")";
+            return s;
+        } else {
+            return "nil";
+        }
+    }
+    Eptr eval(Environment &env) const override {
+        // return std::make_unique<ListExpression>(children);
+        // return std::make_unique<NumericExpression>(55);
+        if (children.size()) {
+            auto &first = children[0];
+            auto symExpr = dynamic_cast<SymbolExpression*>(first.get());
+
+            if (!symExpr)
+                throw std::runtime_error("First list element is not a symbol");
+
+            auto sym = env.lookup(symExpr->repr());
+
+            if (!sym.asFunction)
+                throw std::runtime_error("Symbol's function slot is empty");
+            
+            std::vector<Eptr> parameters;
+
+            for (auto it = children.begin() + 1; it != children.end(); it++)
+                parameters.push_back((*it)->eval(env));
+
+            return (*sym.asFunction)(std::move(parameters), env);
+
+        } else {
+            return std::make_unique<ListExpression>();
+        }
+    }
+
+    ListExpression()
+        : children{ } { }
+
+    ListExpression(std::vector<Eptr> children)
+        : children(std::move(children)) { }
+};
+
+Environment::Environment(Environment *parent)
+    : parent(parent) {
+
+    // XXX
+
+    static FunctionBuiltin f([](std::vector<Eptr> parameters, Environment &env) {
+            std::cout << parameters.at(0)->repr() << "\n";
+            return std::move(parameters.at(0));
+        });
+    
+    set("print", { nullptr, &f });
+}
 
 /**
  * \brief Tokenize one textual expression.
@@ -200,123 +378,117 @@ static std::vector<Token> tokenize(std::istream &stream) {
     return tokens;
 }
 
-#include <unordered_map>
-
-class Environment {
-    std::unordered_map<std::string, Node> symbols;
-public:
-    Environment() = default;
-};
-
-
 #include <stack>
 
 /**
- * \brief Read one textual expression into an AST node.
+ * \brief Create an atom from a token.
  */
-static Node read(std::istream &stream) {
+static std::unique_ptr<AtomExpression> readAtom(const Token &token) {
+    if (token.type == Token::Type::ATOM_NUMERIC) {
+        return std::make_unique<NumericExpression>(std::stoll(token.content));
 
-    std::vector<Token> tokens = tokenize(stream);
+    } else if (token.type == Token::Type::ATOM_STRING) {
+        return std::make_unique<StringExpression>(token.content);
 
-    std::vector<Node> nodes;
-    std::stack <Node> context;
+    } else if (token.type == Token::Type::ATOM_SYMBOL) {
+        return std::make_unique<SymbolExpression>(token.content);
 
-    Node currentList = { };
-
-    std::vector<Node> *container = &nodes;
-
-    for (const auto &t : tokens) {
-        std::cout << (int)t.type << ": " << t.content << "\n";
-        if (t.type == Token::Type::LIST_START) {
-            if (currentList.type != Node::Type::NONE) {
-                context.emplace(currentList);
-            }
-            currentList = { };
-            currentList.type = Node::Type::LIST;
-            container = &currentList.children;
-
-        } else if (t.type == Token::Type::LIST_END) {
-            if (currentList.type == Node::Type::NONE)
-                throw SyntaxError("Unmatched closing paren");
-
-            if (context.empty()) {
-                nodes.emplace_back(currentList);
-                currentList = { };
-                container = &nodes;
-            } else {
-                Node parent = context.top();
-                parent.children.emplace_back(currentList);
-                currentList = parent;
-                context.pop();
-                container = &currentList.children;
-            }
-        } else if (t.type == Token::Type::ATOM_NUMERIC) {
-            Node node;
-            node.type     = Node::Type::ATOM;
-            node.atomType = Node::AtomType::INTEGER;
-            node.valueInt = std::stoi(t.content);
-            container->emplace_back(node);
-        } else if (t.type == Token::Type::ATOM_STRING) {
-            Node node;
-            node.type        = Node::Type::ATOM;
-            node.atomType    = Node::AtomType::STRING;
-            node.valueString = t.content;
-            container->emplace_back(node);
-        } else if (t.type == Token::Type::ATOM_SYMBOL) {
-            Node node;
-            node.type        = Node::Type::ATOM;
-            node.atomType    = Node::AtomType::SYMBOL;
-            node.valueSymbol = t.content;
-            container->emplace_back(node);
-        }
-    }
-
-    if (nodes.size() == 1)
-        return nodes[0];
-    else if (nodes.size() == 0)
-        return Node();
-    else
-        throw std::logic_error("Read more than one node");
-}
-
-static Node eval(const Node &node) {
-    if (node.type == Node::Type::LIST) {
-        return Node { Node::Type::ATOM,
-                Node::AtomType::STRING,
-                { }, "", "ListResult", 0 };
-    } else if (node.type == Node::Type::ATOM) {
-        if (node.atomType == Node::AtomType::SYMBOL) {
-            return Node { Node::Type::ATOM,
-                    Node::AtomType::STRING,
-                    { }, "", "SymbolResult", 0 };
-        } else {
-            return node;
-        }
     } else {
-        throw std::logic_error("Invalid node type");
+        throw std::logic_error("Not an atom token");
     }
 }
 
-static void print(const Node &node, int depth = 0) {
+/**
+ * \brief Create a list from a series of tokens.
+ */
+template<typename It>
+static std::unique_ptr<ListExpression> readList(const It &start, const It &end) {
+    if (start->type != Token::Type::LIST_START)
+        throw std::logic_error("Tokens do not specify a list (start))");
+    if ((end-1)->type != Token::Type::LIST_END)
+        throw std::logic_error("Tokens do not specify a list (end)");
 
+    auto size = std::distance(start, end);
+
+    if (size > 2) {
+        std::vector<Eptr> children;
+
+        for (auto it = start + 1; it != end - 1; it++) {
+            if (it->type == Token::Type::ATOM_NUMERIC
+                || it->type == Token::Type::ATOM_STRING
+                || it->type == Token::Type::ATOM_SYMBOL) {
+
+                children.push_back(readAtom(*it));
+
+            } else if (it->type == Token::Type::LIST_START) {
+                auto subListStart = it;
+                int depth = 1;
+                do {
+                    it++;
+                    if (it == end - 1)
+                        break;
+                    if (it->type == Token::Type::LIST_START)
+                        depth++;
+                    if (it->type == Token::Type::LIST_END)
+                        depth--;
+                } while (depth);
+
+                if (depth)
+                    throw std::logic_error("Bad list token nesting");
+
+                children.push_back(readList(subListStart, it+1));
+
+            } else {
+                throw std::logic_error("Bad token type");
+            }
+        }
+        return std::make_unique<ListExpression>(std::move(children));
+
+    } else {
+        return std::make_unique<ListExpression>();
+    }
+}
+
+/**
+ * \brief Read an expression from a list of tokens.
+ */
+static Eptr read(const std::vector<Token> &tokens) {
+
+    if (!tokens.size())
+        return nullptr;
+
+    if (tokens[0].type == Token::Type::ATOM_NUMERIC
+        || tokens[0].type == Token::Type::ATOM_STRING
+        || tokens[0].type == Token::Type::ATOM_SYMBOL) {
+
+        return readAtom(tokens[0]);
+
+    } else if (tokens[0].type == Token::Type::LIST_START) {
+        
+        return readList(tokens.begin(), tokens.end());
+
+    } else {
+        throw std::logic_error("Unsupported token");
+    }
+}
+
+/**
+ * \brief Read one textual expression into an s-expression.
+ */
+static Eptr read(std::istream &stream) {
+    return read(tokenize(stream));
+}
+
+static Eptr eval(const Expression &expr) {
+    Environment env;
+    return expr.eval(env);
+}
+
+static void print(const Expression &expr, int depth = 0) {
     std::string indent;
     indent.resize(depth, ' ');
 
-    if (node.type == Node::Type::LIST) {
-        std::cout << indent << "(\n";
-        for (const auto &child : node.children)
-            print(child, depth + 1);
-        std::cout << indent << ")";
-    } else {
-        if (node.atomType == Node::AtomType::INTEGER)
-            std::cout << indent << node.valueInt;
-        else if (node.atomType == Node::AtomType::STRING)
-            std::cout << indent << '"' << node.valueString << '"';
-        else if (node.atomType == Node::AtomType::SYMBOL)
-            std::cout << indent << node.valueSymbol;
-        // std::cout << " ";
-    }
-    std::cout << "\n";
+    std::cout << expr.repr() << "\n";
 }
 
 #include <unistd.h>
@@ -328,12 +500,11 @@ int main(int argc, char **argv) {
             std::cout << "MATIG> ";
             std::cout.flush();
         }
-        auto node = read(std::cin);
-        if (node.type == Node::Type::NONE)
+        auto expr = read(std::cin);
+        if (!expr)
             break;
 
-        // print(eval(node));
-        print(node);
+        print(*eval(*expr));
     }
 
     return 0;
