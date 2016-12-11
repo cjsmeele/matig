@@ -6,7 +6,7 @@
 #include <vector>
 
 class Expression;
-typedef std::unique_ptr<Expression> Eptr;
+typedef std::unique_ptr<const Expression> Eptr;
 
 class Expression {
 public:
@@ -35,7 +35,6 @@ public:
         return std::to_string(value);
     }
 
-    // XXX Temporary.
     int64_t getValue() const {
         return value;
     }

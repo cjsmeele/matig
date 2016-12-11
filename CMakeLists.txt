@@ -20,10 +20,17 @@ set(warnings
 set(cxxflags
     "-std=c++14"
     "-g3"
+    "-O2"
+    #"-flto"
     ${warnings})
 
+#set(ldflags
+#    "-flto")
+
 string(REGEX REPLACE ";" " " cxxflags "${cxxflags}")
+string(REGEX REPLACE ";" " " ldflags "${ldflags}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${cxxflags}")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${ldflags}")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)

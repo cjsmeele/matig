@@ -34,7 +34,7 @@ Environment::Environment(Environment *parent)
             for (const auto &expr : parameters) {
                 if (expr.get()->type() != Expression::Type::NUMERIC)
                     throw std::runtime_error("Parameter is not numeric");
-                auto numExpr = static_cast<NumericExpression*>(expr.get());
+                auto numExpr = static_cast<const NumericExpression*>(expr.get());
 
                 result += numExpr->getValue();
             }

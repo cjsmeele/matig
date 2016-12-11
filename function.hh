@@ -5,13 +5,13 @@
 class Function {
 public:
     virtual Eptr operator()(std::vector<Eptr> parameters,
-                       Environment &env) = 0;
+                            Environment &env) = 0;
 
     virtual ~Function() = default;
 };
 
 class FunctionBuiltin : public Function {
-    typedef std::function<Eptr (std::vector<Eptr>, Environment&)> F;
+    typedef std::function<Eptr(std::vector<Eptr>, Environment&)> F;
 
     F func;
 

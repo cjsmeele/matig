@@ -21,7 +21,7 @@ Eptr ListExpression::eval(Environment &env) const {
 
         if (first.get()->type() != Expression::Type::SYMBOL)
             throw std::runtime_error("First list element is not a symbol");
-        auto symExpr = static_cast<SymbolExpression*>(first.get());
+        auto symExpr = static_cast<const SymbolExpression*>(first.get());
 
         auto sym = env.lookup(symExpr->repr());
 
