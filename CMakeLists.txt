@@ -29,7 +29,9 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 set(sources
-    main.cc)
+    main.cc
+    expression.cc
+    environment.cc)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake_modules" ${CMAKE_MODULE_PATH})
 find_package(Boost REQUIRED COMPONENTS system filesystem)

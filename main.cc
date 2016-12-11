@@ -4,8 +4,12 @@
 #include <stdexcept>
 #include <string>
 #include <sstream>
-#include <map>
+#include <fstream>
 #include <memory>
+
+#include "expression.hh"
+#include "environment.hh"
+#include "function.hh"
 
 class SyntaxError : public std::runtime_error {
 public:
@@ -27,220 +31,6 @@ struct Token {
     std::string content;
 };
 
-class Expression;
-class Function;
-
-struct Symbol {
-    // std::string asSymbol;
-    // std::string asString;
-    // int64_t     asInt;
-    Expression  *asExpression;
-    Function    *asFunction;
-};
-
-class Environment {
-    std::map<std::string, Symbol> symbols;
-    Environment *parent;
-public:
-    Symbol &lookup(const std::string &name) {
-        auto it = symbols.find(name);
-        if (it == symbols.end()) {
-            if (parent)
-                return parent->lookup(name);
-            else 
-                throw std::runtime_error("Symbol does not exist");
-        } else {
-            return it->second;
-        }
-    }
-
-    void set(const std::string &name, const Symbol &value) {
-        symbols[name] = value;
-    }
-
-    // Environment(Environment *parent = nullptr)
-    //     : parent(parent) {
-    // }
-    Environment(Environment *parent = nullptr);
-};
-
-class Expression;
-typedef std::unique_ptr<Expression> Eptr;
-
-class Expression {
-public:
-    virtual std::string repr() const = 0;
-    virtual Eptr eval(Environment &env) const = 0;
-    virtual ~Expression() = default;
-};
-
-class AtomExpression : public Expression { };
-
-class NumericExpression : public AtomExpression {
-
-    int64_t value;
-
-public:
-    std::string repr() const override {
-        return std::to_string(value);
-    }
-
-    // XXX Temporary.
-    int64_t getValue() const {
-        return value;
-    }
-    
-    Eptr eval(Environment &env) const override {
-        return std::make_unique<NumericExpression>(value);
-    }
-
-    NumericExpression(int64_t value)
-        : value(value) { }
-};
-
-class StringExpression : public AtomExpression {
-
-    std::string value;
-
-public:
-    std::string repr() const override {
-        // TODO: Escaping.
-        return std::string("\"") + value + '"';
-    }
-    Eptr eval(Environment &env) const override {
-        return std::make_unique<StringExpression>(value);
-    }
-
-    StringExpression(const std::string &value)
-        : value(value) { }
-};
-
-class SymbolExpression : public AtomExpression {
-
-    std::string value;
-
-public:
-    std::string repr() const override {
-        return value;
-    }
-    Eptr eval(Environment &env) const override {
-        return std::make_unique<SymbolExpression>(value);
-    }
-
-    SymbolExpression(const std::string &value)
-        : value(value) { }
-};
-
-class Function {
-public:
-    virtual Eptr operator()(std::vector<Eptr> parameters,
-                       Environment &env) = 0;
-
-    virtual ~Function() = default;
-};
-
-class FunctionBuiltin : public Function {
-    typedef std::function<Eptr (std::vector<Eptr>, Environment&)> F;
-
-    F func;
-
-public:
-    Eptr operator()(std::vector<Eptr> parameters,
-                    Environment &env) {
-
-        return func(std::move(parameters), env);
-    }
-
-    FunctionBuiltin(F func)
-        : func(func) { }
-};
-
-class FunctionLisp : public Function {
-
-public:
-    Eptr operator()(std::vector<Eptr> parameters,
-                    Environment &env) {
-        return std::make_unique<NumericExpression>(42);
-    }
-};
-
-class ListExpression : public Expression {
-
-    std::vector<Eptr> children;
-
-public:
-    std::string repr() const override {
-        if (children.size()) {
-            // return "<list>";
-            std::string s = "(";
-            for (const auto &child : children)
-                s += child->repr() + " ";
-            if (s[s.length()-1] == ' ')
-                s.erase(s.end()-1);
-            s += ")";
-            return s;
-        } else {
-            return "nil";
-        }
-    }
-    Eptr eval(Environment &env) const override {
-        // return std::make_unique<ListExpression>(children);
-        // return std::make_unique<NumericExpression>(55);
-        if (children.size()) {
-            auto &first = children[0];
-            auto symExpr = dynamic_cast<SymbolExpression*>(first.get());
-
-            if (!symExpr)
-                throw std::runtime_error("First list element is not a symbol");
-
-            auto sym = env.lookup(symExpr->repr());
-
-            if (!sym.asFunction)
-                throw std::runtime_error("Symbol's function slot is empty");
-            
-            std::vector<Eptr> parameters;
-
-            for (auto it = children.begin() + 1; it != children.end(); it++)
-                parameters.push_back((*it)->eval(env));
-
-            return (*sym.asFunction)(std::move(parameters), env);
-
-        } else {
-            return std::make_unique<ListExpression>();
-        }
-    }
-
-    ListExpression()
-        : children{ } { }
-
-    ListExpression(std::vector<Eptr> children)
-        : children(std::move(children)) { }
-};
-
-Environment::Environment(Environment *parent)
-    : parent(parent) {
-
-    // XXX This is all temporary hacks.
-
-    static FunctionBuiltin f([](std::vector<Eptr> parameters, Environment &env) {
-            std::cout << parameters.at(0)->repr() << "\n";
-            return std::move(parameters.at(0));
-        });
-
-    static FunctionBuiltin f2([](std::vector<Eptr> parameters, Environment &env) {
-            int64_t result = 0;
-            for (const auto &expr : parameters) {
-                auto numExpr = dynamic_cast<NumericExpression*>(expr.get());
-                if (!numExpr)
-                    throw std::runtime_error("Parameter is not numeric");
-                result += numExpr->getValue();
-            }
-            return std::make_unique<NumericExpression>(result);
-        });
-    
-    set("print", { nullptr, &f });
-    set("+", { nullptr, &f2 });
-}
 
 /**
  * \brief Tokenize one textual expression.
@@ -396,8 +186,6 @@ static std::vector<Token> tokenize(std::istream &stream) {
     return tokens;
 }
 
-#include <stack>
-
 /**
  * \brief Create an atom from a token.
  */
@@ -513,17 +301,35 @@ static void print(const Expression &expr, int depth = 0) {
 
 int main(int argc, char **argv) {
 
+    std::istream  *in = &std::cin;
+    std::ifstream file;
+
+    if (argc > 1 && std::string(argv[1]) != "-") {
+        file.open(argv[1]);
+        if (!file)
+            throw std::runtime_error(std::string("Could not open file '")
+                                     + argv[1] + "' for reading.");
+    }
+
+    if (file.is_open())
+        in = &file;
+
+    bool isInteractive = in == &std::cin && isatty(fileno(stdin));
+
     while (true) {
-        if (isatty(fileno(stdin))) {
+        if (isInteractive) {
             std::cout << "MATIG> ";
             std::cout.flush();
         }
         try {
-            auto expr = read(std::cin);
+            auto expr = read(*in);
             if (!expr)
                 break;
 
-            print(*eval(*expr));
+            auto result = eval(*expr);
+            if (isInteractive)
+                print(*result);
+
         } catch (std::runtime_error &e) {
             std::cerr << "ERR: " << e.what() << "\n";
         }
