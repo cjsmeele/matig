@@ -7,6 +7,7 @@
 
 class Expression;
 typedef std::unique_ptr<const Expression> Eptr;
+typedef std::vector<Eptr> Elist;
 
 class Expression {
 public:
@@ -35,9 +36,7 @@ public:
         return std::to_string(value);
     }
 
-    int64_t getValue() const {
-        return value;
-    }
+    int64_t getValue() const { return value; }
     
     Eptr eval(Environment &env) const override {
         return std::make_unique<NumericExpression>(value);
@@ -58,6 +57,9 @@ public:
         // TODO: Escaping.
         return std::string("\"") + value + '"';
     }
+
+    const std::string &getValue() const { return value; }
+
     Eptr eval(Environment &env) const override {
         return std::make_unique<StringExpression>(value);
     }
@@ -76,6 +78,11 @@ public:
     std::string repr() const override {
         return value;
     }
+
+    const std::string &getValue() const {
+        return value;
+    }
+
     Eptr eval(Environment &env) const override {
         return std::make_unique<SymbolExpression>(value);
     }
@@ -86,17 +93,22 @@ public:
 
 class ListExpression : public Expression {
 
-    std::vector<Eptr> children;
+    Elist children;
 
 public:
     Type type() const { return Type::LIST; }
 
     std::string repr() const override;
+
+    const Elist &getChildren() const {
+        return children;
+    }
+
     Eptr eval(Environment &env) const override;
 
     ListExpression()
         : children{ } { }
 
-    ListExpression(std::vector<Eptr> children)
+    ListExpression(Elist children)
         : children(std::move(children)) { }
 };

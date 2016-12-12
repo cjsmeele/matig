@@ -19,28 +19,13 @@ void Environment::set(const std::string &name, const Symbol &value) {
     symbols[name] = value;
 }
 
+void Environment::set(const std::string &name, const Function &value) {
+    symbols[name].asFunction = &value;
+}
+
 Environment::Environment(Environment *parent)
     : parent(parent) {
 
-    // XXX This is all temporary hacks.
-
-    static FunctionBuiltin f([](std::vector<Eptr> parameters, Environment &env) {
-            std::cout << parameters.at(0)->repr() << "\n";
-            return std::move(parameters.at(0));
-        });
-
-    static FunctionBuiltin f2([](std::vector<Eptr> parameters, Environment &env) {
-            int64_t result = 0;
-            for (const auto &expr : parameters) {
-                if (expr.get()->type() != Expression::Type::NUMERIC)
-                    throw std::runtime_error("Parameter is not numeric");
-                auto numExpr = static_cast<const NumericExpression*>(expr.get());
-
-                result += numExpr->getValue();
-            }
-            return std::make_unique<NumericExpression>(result);
-        });
-    
-    set("print", { nullptr, &f });
-    set("+",     { nullptr, &f2 });
+    // XXX
+    registerBuiltinFunctions(*this);
 }

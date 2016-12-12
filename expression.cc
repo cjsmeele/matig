@@ -28,7 +28,7 @@ Eptr ListExpression::eval(Environment &env) const {
         if (!sym.asFunction)
             throw std::runtime_error("Symbol's function slot is empty");
             
-        std::vector<Eptr> parameters;
+        Elist parameters;
 
         for (auto it = children.begin() + 1; it != children.end(); it++)
             parameters.push_back((*it)->eval(env));

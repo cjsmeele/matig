@@ -9,8 +9,8 @@ struct Symbol {
     // std::string asSymbol;
     // std::string asString;
     // int64_t     asInt;
-    Expression  *asExpression;
-    Function    *asFunction;
+    const Expression  *asExpression;
+    const Function    *asFunction;
 };
 
 class Environment {
@@ -20,6 +20,7 @@ public:
     Symbol &lookup(const std::string &name);
 
     void set(const std::string &name, const Symbol &value);
+    void set(const std::string &name, const Function &value);
 
     // Environment(Environment *parent = nullptr)
     //     : parent(parent) {

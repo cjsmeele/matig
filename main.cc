@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cstring>
 #include <iostream>
 #include <vector>
 #include <stdexcept>
@@ -11,11 +12,34 @@
 #include "environment.hh"
 #include "function.hh"
 
+using namespace std::literals::string_literals;
+
 class SyntaxError : public std::runtime_error {
 public:
     SyntaxError(const std::string &s)
         : std::runtime_error("Syntax error: " + s) { }
 };
+
+/**
+ * \brief Defer execution of a function to scope exit.
+ */
+template <typename T>
+class Defer {
+    T f;
+public:
+     Defer(T f) : f(f) { }
+    ~Defer() { f(); }
+};
+
+/**
+ * \brief Defer execution of a function to scope exit.
+ *
+ * \param func
+ */
+template <typename T>
+Defer<T> defer(T func) {
+    return Defer<T>(func);
+}
 
 struct Token {
     enum class Type {
@@ -26,7 +50,7 @@ struct Token {
         ATOM_NUMERIC,
         ATOM_SYMBOL,
         QUOTE,
-        } type = Type::NONE;
+    } type = Type::NONE;
 
     std::string content;
 };
@@ -154,6 +178,17 @@ static std::vector<Token> tokenize(std::istream &stream) {
                 token.type    = Token::Type::ATOM_SYMBOL;
                 token.content = c;
 
+                // Defer decision making on what type of token this is
+                // to the end of this case.
+                // defer([&token]{
+                //     if (token.content == "t") {
+                //         token.type = Token::Type::T;
+                //     } else if (token.content == "nil") {
+                //         token.type = Token::Type::NIL;
+                //     }
+                // });
+                // Actually, t and nil are just symbols.
+
                 while (!isBreak((c = next(false))))
                     token.content += c;
 
@@ -200,7 +235,7 @@ static std::unique_ptr<AtomExpression> readAtom(const Token &token) {
         return std::make_unique<SymbolExpression>(token.content);
 
     } else {
-        throw std::logic_error("Not an atom token");
+        throw std::logic_error("Not an atom token: '"s + token.content + "'");
     }
 }
 
@@ -209,6 +244,7 @@ static std::unique_ptr<AtomExpression> readAtom(const Token &token) {
  */
 template<typename It>
 static std::unique_ptr<ListExpression> readList(const It &start, const It &end) {
+
     if (start->type != Token::Type::LIST_START)
         throw std::logic_error("Tokens do not specify a list (start))");
     if ((end-1)->type != Token::Type::LIST_END)
@@ -217,7 +253,7 @@ static std::unique_ptr<ListExpression> readList(const It &start, const It &end) 
     auto size = std::distance(start, end);
 
     if (size > 2) {
-        std::vector<Eptr> children;
+        Elist children;
 
         for (auto it = start + 1; it != end - 1; it++) {
             if (it->type == Token::Type::ATOM_NUMERIC
@@ -263,7 +299,7 @@ static Eptr read(const std::vector<Token> &tokens) {
     if (!tokens.size())
         return nullptr;
 
-    if (tokens[0].type == Token::Type::ATOM_NUMERIC
+    if (   tokens[0].type == Token::Type::ATOM_NUMERIC
         || tokens[0].type == Token::Type::ATOM_STRING
         || tokens[0].type == Token::Type::ATOM_SYMBOL) {
 
@@ -274,7 +310,7 @@ static Eptr read(const std::vector<Token> &tokens) {
         return readList(tokens.begin(), tokens.end());
 
     } else {
-        throw std::logic_error("Unsupported token");
+        throw std::logic_error("Unsupported token type");
     }
 }
 
@@ -304,10 +340,12 @@ int main(int argc, char **argv) {
     std::istream  *in = &std::cin;
     std::ifstream file;
 
-    if (argc > 1 && std::string(argv[1]) != "-") {
+    std::string prompt = "\x1b[1;36m" "Matig" "\x1b[0m" "> ";
+
+    if (argc > 1 && std::strcmp(argv[1], "-")) {
         file.open(argv[1]);
         if (!file)
-            throw std::runtime_error(std::string("Could not open file '")
+            throw std::runtime_error("Could not open file '"s
                                      + argv[1] + "' for reading.");
     }
 
@@ -318,7 +356,7 @@ int main(int argc, char **argv) {
 
     while (true) {
         if (isInteractive) {
-            std::cout << "MATIG> ";
+            std::cout << prompt;
             std::cout.flush();
         }
         try {
