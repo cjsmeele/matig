@@ -9,7 +9,7 @@ Symbol &Environment::lookup(const std::string &name) {
         if (parent)
             return parent->lookup(name);
         else 
-            throw std::runtime_error("Symbol does not exist");
+            throw ProgramError("Symbol does not exist");
     } else {
         return it->second;
     }

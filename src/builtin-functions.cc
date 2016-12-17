@@ -19,7 +19,7 @@ DEFUN(opPlus) {
     int64_t result = 0;
     for (const auto &expr : parameters) {
         if (expr.get()->type() != Expression::Type::NUMERIC)
-            throw std::runtime_error("Parameter is not numeric");
+            throw ProgramError("Parameter is not numeric");
         auto numExpr = static_cast<const NumericExpression*>(expr.get());
 
         result += numExpr->getValue();

@@ -1,8 +1,8 @@
 #pragma once
 
+#include "common.hh"
 #include "environment.hh"
 
-#include <memory>
 #include <vector>
 
 class Expression;

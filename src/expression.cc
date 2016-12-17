@@ -20,13 +20,13 @@ Eptr ListExpression::eval(Environment &env) const {
         auto &first = children[0];
 
         if (first.get()->type() != Expression::Type::SYMBOL)
-            throw std::runtime_error("First list element is not a symbol");
+            throw ProgramError("First list element is not a symbol");
         auto symExpr = static_cast<const SymbolExpression*>(first.get());
 
         auto sym = env.lookup(symExpr->repr());
 
         if (!sym.asFunction)
-            throw std::runtime_error("Symbol's function slot is empty");
+            throw ProgramError("Symbol's function slot is empty");
             
         Elist parameters;
 

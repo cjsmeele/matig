@@ -1,5 +1,6 @@
 #pragma once
 
+#include "common.hh"
 #include <map>
 
 class Expression;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "common.hh"
 #include "expression.hh"
 
 class Function {

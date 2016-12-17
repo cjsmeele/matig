@@ -39,7 +39,10 @@ set(sources
     src/main.cc
     src/expression.cc
     src/environment.cc
-    src/builtin-functions.cc)
+    src/builtin-functions.cc
+    src/read.cc
+    src/eval.cc
+    src/print.cc)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake_modules" ${CMAKE_MODULE_PATH})
 find_package(Boost REQUIRED COMPONENTS system filesystem)
