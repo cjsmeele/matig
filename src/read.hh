@@ -30,6 +30,12 @@ struct Token {
     } type = Type::NONE;
 
     std::string content;
+
+    bool isAtomish() const {
+        return type == Type::ATOM_STRING
+            || type == Type::ATOM_NUMERIC
+            || type == Type::ATOM_SYMBOL;
+    }
 };
 
 /**

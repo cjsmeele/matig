@@ -60,7 +60,13 @@ static std::vector<Token> tokenize(std::istream &stream) {
             // At the end of this if/elseif chain, exactly one
             // character has been read beyond the end of the token.
 
-            if (c == '(') {
+            if (c == '\'') {
+                token.type = Token::Type::QUOTE;
+                token.content = c;
+
+                c = next(false);
+
+            } else if (c == '(') {
                 token.type = Token::Type::LIST_START;
                 token.content = c;
 
@@ -140,7 +146,8 @@ static std::vector<Token> tokenize(std::istream &stream) {
             // End of token.
             tokens.push_back(token);
 
-            if (listLevel == 0) {
+            if (listLevel == 0 && (token.type == Token::Type::LIST_END
+                                   || token.isAtomish())) {
                 // We have a complete expression (a complete list or one atom).
                 // We haven't reached the end of the stream yet.
                 stream.putback(c);
@@ -198,6 +205,7 @@ static std::shared_ptr<Expr> readCons(const It &start, const It &end) {
         ConsExpr *currentCons = rootCons.get();
 
         bool haveDot = false; // Whether the previous token was a dot.
+        int quotes = 0;
 
         // Loop through all tokens within the parentheses.
         for (auto it = start + 1; it != end - 1; it++) {
@@ -211,12 +219,12 @@ static std::shared_ptr<Expr> readCons(const It &start, const It &end) {
                     throw SyntaxError("Invalid dot syntax (no car)");
                 if (currentCons->getCdr())
                     throw SyntaxError("Invalid dot syntax");
+                if (quotes)
+                    throw SyntaxError("Stray quote before cons dot");
 
                 haveDot = true;
 
-            } else if (it->type == Token::Type::ATOM_NUMERIC
-                || it->type == Token::Type::ATOM_STRING
-                || it->type == Token::Type::ATOM_SYMBOL) {
+            } else if (it->isAtomish()) {
 
                 currentExpr = readAtom(*it);
 
@@ -238,6 +246,9 @@ static std::shared_ptr<Expr> readCons(const It &start, const It &end) {
 
                 currentExpr = readCons(subListStart, it+1);
 
+            } else if (it->type == Token::Type::QUOTE) {
+                quotes++;
+
             } else {
                 throw LogicError("Bad token type");
             }
@@ -248,6 +259,9 @@ static std::shared_ptr<Expr> readCons(const It &start, const It &end) {
             // (1 2 . 3) => { 1 { 2 3 } }
             // (1 2 3)   => { 1 { 2 { 3 nil } } }
             if (currentExpr) {
+                currentExpr->quote(quotes);
+                quotes = 0;
+
                 if (haveDot) {
                     currentCons->getCdr() = currentExpr;
                     haveDot = false;
@@ -283,15 +297,27 @@ static Eptr read(const std::vector<Token> &tokens) {
     if (!tokens.size())
         return nullptr;
 
-    if (   tokens[0].type == Token::Type::ATOM_NUMERIC
-        || tokens[0].type == Token::Type::ATOM_STRING
-        || tokens[0].type == Token::Type::ATOM_SYMBOL) {
+    int quotes = 0;
+    size_t i = 0;
+    for (; i < tokens.size() && tokens[i].type == Token::Type::QUOTE; i++)
+        quotes++;
 
-        return readAtom(tokens[0]);
+    if (quotes && i >= tokens.size())
+        throw SyntaxError("Quote at EOF");
 
-    } else if (tokens[0].type == Token::Type::LIST_START) {
+    if (   tokens[i].type == Token::Type::ATOM_NUMERIC
+        || tokens[i].type == Token::Type::ATOM_STRING
+        || tokens[i].type == Token::Type::ATOM_SYMBOL) {
+
+        auto atom = readAtom(tokens[i]);
+        atom->quote(quotes);
+        return atom;
+
+    } else if (tokens[i].type == Token::Type::LIST_START) {
         
-        return readCons(tokens.begin(), tokens.end());
+        auto cons = readCons(tokens.begin()+i, tokens.end());
+        cons->quote(quotes);
+        return cons;
 
     } else {
         throw LogicError("Unsupported token type");

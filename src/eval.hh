@@ -6,4 +6,4 @@
 /**
  * \brief Evaluate an expression.
  */
-Eptr eval(const Expr &expr);
+Eptr eval(Expr &expr);

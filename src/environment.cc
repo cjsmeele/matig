@@ -9,7 +9,7 @@ Symbol &Environment::lookup(const std::string &name) {
         if (parent)
             return parent->lookup(name);
         else 
-            throw ProgramError("Symbol does not exist");
+            throw ProgramError("Symbol '"s + name + "' does not exist");
     } else {
         return it->second;
     }
@@ -19,7 +19,7 @@ void Environment::set(const std::string &name, const Symbol &value) {
     symbols[name] = value;
 }
 
-void Environment::set(const std::string &name, const Function &value) {
+void Environment::set(const std::string &name, Function &value) {
     symbols[name].asFunction = &value;
 }
 

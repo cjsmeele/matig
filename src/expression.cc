@@ -1,12 +1,27 @@
 #include "expression.hh"
 #include "function.hh"
 
+std::string Expr::repr() const {
+    std::string s;
+    s.resize(quoteLevel, '\'');
+    return s + repr2();
+}
+
+Eptr Expr::eval(Environment &env) {
+    if (quoteLevel) {
+        quoteLevel--;
+        return shared_from_this();
+    } else {
+        return eval2(env);
+    }
+}
+
 bool ConsExpr::isList() const {
     return (cdr->type() == Expr::Type::CONS
             || cdr->isNil());
 }
 
-std::string ConsExpr::repr() const {
+std::string ConsExpr::repr2() const {
 
     if (!car)
         throw LogicError("Null car");
@@ -38,7 +53,7 @@ std::string ConsExpr::repr() const {
     return s + ")";
 }
 
-Eptr ConsExpr::eval(Environment &env) const {
+Eptr ConsExpr::eval2(Environment &env) {
     if (!car)
         throw LogicError("Null car");
     if (!cdr)
@@ -51,7 +66,11 @@ Eptr ConsExpr::eval(Environment &env) const {
         throw ProgramError("First list element is not a symbol");
 
     auto symExpr = static_cast<const SymbolExpr*>(car.get());
-    auto sym     = env.lookup(symExpr->repr());
+
+    if (symExpr->getQuoteLevel())
+        throw ProgramError("Invalid function call: quoted symbol");
+
+    Symbol &sym = env.lookup(symExpr->getValue());
 
     if (!sym.asFunction)
         throw ProgramError("Symbol's function slot is empty");
