@@ -6,9 +6,9 @@
 #define MATIG_FUNOBJ(name)  fo_cfun_ ## name
 
 #define DEFUN(name) \
-    static Eptr MATIG_FUNNAME(name) (Elist parameters, Environment &env); \
+    static Eptr MATIG_FUNNAME(name) (Elist parameters, Env &env); \
     static FunctionC MATIG_FUNOBJ(name) (MATIG_FUNNAME(name));          \
-    static Eptr MATIG_FUNNAME(name) (Elist parameters, Environment &env)
+    static Eptr MATIG_FUNNAME(name) (Elist parameters, Env &env)
 
 DEFUN(print) {
     std::cout << parameters.at(0)->repr() << "\n";
@@ -27,7 +27,7 @@ DEFUN(opPlus) {
     return std::make_shared<NumericExpr>(result);
 }
 
-void registerBuiltinFunctions(Environment &env) {
+void registerBuiltinFunctions(Env &env) {
     env.set("print", MATIG_FUNOBJ(print));
     env.set("+",     MATIG_FUNOBJ(opPlus));
 }

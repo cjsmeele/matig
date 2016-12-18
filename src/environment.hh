@@ -15,17 +15,17 @@ struct Symbol {
     Function *asFunction;
 };
 
-class Environment {
+class Env {
     std::map<std::string, Symbol> symbols;
-    Environment *parent;
+    Env *parent;
 public:
     Symbol &lookup(const std::string &name);
 
     void set(const std::string &name, const Symbol &value);
     void set(const std::string &name, Function &value);
 
-    // Environment(Environment *parent = nullptr)
+    // Env(Env *parent = nullptr)
     //     : parent(parent) {
     // }
-    Environment(Environment *parent = nullptr);
+    Env(Env *parent = nullptr);
 };

@@ -277,6 +277,11 @@ static std::shared_ptr<Expr> readCons(const It &start, const It &end) {
         }
         if (haveDot)
             throw SyntaxError("Invalid dot syntax");
+        if (quotes)
+            throw SyntaxError("Invalid quote syntax");
+
+        if (!currentCons->getCar())
+            currentCons->getCdr() = std::make_shared<SymbolExpr>("nil");
 
         if (!currentCons->getCdr())
             currentCons->getCdr() = std::make_shared<SymbolExpr>("nil");

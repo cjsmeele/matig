@@ -30,6 +30,8 @@ int main(int argc, char **argv) {
 
     bool isInteractive = in == &std::cin && isatty(fileno(stdin));
 
+    Env env;
+
     while (true) {
         if (isInteractive) {
             std::cout << prompt;
@@ -43,7 +45,7 @@ int main(int argc, char **argv) {
                 break;
 
             // Eptr result = expr;
-            Eptr result = eval(*expr);
+            Eptr result = eval(*expr, env);
 
             if (isInteractive)
                 print(*result);

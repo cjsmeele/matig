@@ -25,10 +25,10 @@ public:
     virtual bool isNil() const { return false; }
 
     virtual std::string repr() const;
-    virtual Eptr        eval(Environment &env);
+    virtual Eptr        eval(Env &env);
 
     virtual std::string repr2() const = 0;
-    virtual Eptr        eval2(Environment &env) = 0;
+    virtual Eptr        eval2(Env &env) = 0;
 
     virtual ~Expr() = default;
 };
@@ -48,7 +48,7 @@ public:
 
     int64_t getValue() const { return value; }
     
-    Eptr eval2(Environment &env) override {
+    Eptr eval2(Env &env) override {
         return shared_from_this();
     }
 
@@ -71,7 +71,7 @@ public:
     const std::string &getValue() const { return value; }
           std::string &getValue()       { return value; }
 
-    Eptr eval2(Environment &env) override {
+    Eptr eval2(Env &env) override {
         return shared_from_this();
     }
 
@@ -95,7 +95,7 @@ public:
     const std::string &getValue() const { return value; }
           std::string &getValue()       { return value; }
 
-    Eptr eval2(Environment &env) override {
+    Eptr eval2(Env &env) override {
         Eptr expr = env.lookup(value).asExpr;
         if (!expr)
             throw ProgramError("Symbols value as expression is void");
@@ -156,7 +156,7 @@ public:
     const Eptr &getCdr() const { return cdr; }
           Eptr &getCdr()       { return cdr; }
 
-    Eptr eval2(Environment &env) override;
+    Eptr eval2(Env &env) override;
 
     Iterator<ConsExpr> begin();
     Iterator<const ConsExpr> begin() const;

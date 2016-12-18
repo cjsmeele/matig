@@ -7,7 +7,7 @@ std::string Expr::repr() const {
     return s + repr2();
 }
 
-Eptr Expr::eval(Environment &env) {
+Eptr Expr::eval(Env &env) {
     if (quoteLevel) {
         quoteLevel--;
         return shared_from_this();
@@ -53,7 +53,7 @@ std::string ConsExpr::repr2() const {
     return s + ")";
 }
 
-Eptr ConsExpr::eval2(Environment &env) {
+Eptr ConsExpr::eval2(Env &env) {
     if (!car)
         throw LogicError("Null car");
     if (!cdr)

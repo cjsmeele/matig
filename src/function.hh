@@ -6,7 +6,7 @@
 class Function {
 public:
     virtual Eptr operator()(std::vector<Eptr> parameters,
-                            Environment &env) const = 0;
+                            Env &env) const = 0;
 
     virtual ~Function() = default;
 };
@@ -15,13 +15,13 @@ public:
  * \brief A special form implemented in C/C++.
  */
 class FunctionSpecial : public Function {
-    typedef std::function<Eptr(std::vector<Eptr>, Environment&)> F;
+    typedef std::function<Eptr(std::vector<Eptr>, Env&)> F;
 
     F func;
 
 public:
     Eptr operator()(std::vector<Eptr> parameters,
-                    Environment &env) const {
+                    Env &env) const {
 
         return func(std::move(parameters), env);
     }
@@ -34,13 +34,13 @@ public:
  * \brief A function implemented in C/C++.
  */
 class FunctionC : public Function {
-    typedef std::function<Eptr(std::vector<Eptr>, Environment&)> F;
+    typedef std::function<Eptr(std::vector<Eptr>, Env&)> F;
 
     F func;
 
 public:
     Eptr operator()(std::vector<Eptr> parameters,
-                    Environment &env) const {
+                    Env &env) const {
 
         return func(std::move(parameters), env);
     }
@@ -56,9 +56,9 @@ class FunctionLisp : public Function {
 
 public:
     Eptr operator()(std::vector<Eptr> parameters,
-                    Environment &env) const {
+                    Env &env) const {
         return std::make_unique<NumericExpr>(42);
     }
 };
 
-void registerBuiltinFunctions(Environment &env);
+void registerBuiltinFunctions(Env &env);

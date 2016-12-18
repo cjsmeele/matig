@@ -3,7 +3,7 @@
 
 #include <iostream>
 
-Symbol &Environment::lookup(const std::string &name) {
+Symbol &Env::lookup(const std::string &name) {
     auto it = symbols.find(name);
     if (it == symbols.end()) {
         if (parent)
@@ -15,15 +15,15 @@ Symbol &Environment::lookup(const std::string &name) {
     }
 }
 
-void Environment::set(const std::string &name, const Symbol &value) {
+void Env::set(const std::string &name, const Symbol &value) {
     symbols[name] = value;
 }
 
-void Environment::set(const std::string &name, Function &value) {
+void Env::set(const std::string &name, Function &value) {
     symbols[name].asFunction = &value;
 }
 
-Environment::Environment(Environment *parent)
+Env::Env(Env *parent)
     : parent(parent) {
 
     // XXX
