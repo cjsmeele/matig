@@ -3,7 +3,7 @@
  * \brief     Function types.
  * \author    Chris Smeele
  * \copyright Copyright (c) 2016, Chris Smeele
- * \license   TBD, do not redistribute.
+ * \license   MIT, see LICENSE.
  */
 #pragma once
 
