@@ -11,38 +11,22 @@
 #include "expression.hh"
 
 class Function {
+    // TODO: Function signature.
+
 public:
+    virtual bool isSpecial() { return false; }
+
     virtual Eptr operator()(std::vector<Eptr> parameters,
                             Env &env) const = 0;
 
     virtual ~Function() = default;
 };
 
-/**
- * \brief A special form implemented in C/C++.
- */
-class FunctionSpecial : public Function {
-    typedef std::function<Eptr(std::vector<Eptr>, Env&)> F;
-
-    F func;
-
-public:
-    Eptr operator()(std::vector<Eptr> parameters,
-                    Env &env) const {
-
-        return func(std::move(parameters), env);
-    }
-
-    FunctionSpecial(F func)
-        : func(func) { }
-};
-
-/**
- * \brief A function implemented in C/C++.
- */
 class FunctionC : public Function {
+protected:
     typedef std::function<Eptr(std::vector<Eptr>, Env&)> F;
 
+private:
     F func;
 
 public:
@@ -53,19 +37,43 @@ public:
     }
 
     FunctionC(F func)
-        : func(func) { }
+        : func(func)
+        { }
 };
 
-/**
- * \brief A function implemented in Lisp.
- */
 class FunctionLisp : public Function {
+
+    Eptr body;
 
 public:
     Eptr operator()(std::vector<Eptr> parameters,
                     Env &env) const {
-        return std::make_unique<NumericExpr>(42);
+
+        return std::make_shared<NumericExpr>(42);
+        // return body->eval(env);
     }
+
+    FunctionLisp(Eptr body)
+        : body(body)
+        { }
+};
+
+class SpecOp : public FunctionC {
+public:
+    bool isSpecial() { return true; }
+
+    SpecOp(F func)
+        : FunctionC(func)
+        { }
+};
+
+class Macro : public FunctionLisp {
+public:
+    bool isSpecial() { return true; }
+
+    Macro(Eptr body)
+        : FunctionLisp(body)
+        { }
 };
 
 void registerBuiltinFunctions(Env &env);

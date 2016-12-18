@@ -17,8 +17,20 @@
     static FunctionC MATIG_FUNOBJ(name) (MATIG_FUNNAME(name));          \
     static Eptr MATIG_FUNNAME(name) (Elist parameters, Env &env)
 
+#define DEFSPECIAL(name) \
+    static Eptr MATIG_FUNNAME(name) (Elist parameters, Env &env); \
+    static SpecOp MATIG_FUNOBJ(name) (MATIG_FUNNAME(name));          \
+    static Eptr MATIG_FUNNAME(name) (Elist parameters, Env &env)
+
+DEFSPECIAL(quote) {
+    if (parameters.size() != 1)
+        throw ProgramError("Incorrect parameter count (expected 1, got "s
+                           + std::to_string(parameters.size()) + ")");
+
+    return std::move(parameters.at(0));
+}
+
 DEFUN(print) {
-    // TODO: Function signatures.
     if (parameters.size() != 1)
         throw ProgramError("Incorrect parameter count (expected 1, got "s
                            + std::to_string(parameters.size()) + ")");
@@ -40,6 +52,7 @@ DEFUN(opPlus) {
 }
 
 void registerBuiltinFunctions(Env &env) {
+    env.set("quote", MATIG_FUNOBJ(quote));
     env.set("print", MATIG_FUNOBJ(print));
     env.set("+",     MATIG_FUNOBJ(opPlus));
 }

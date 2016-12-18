@@ -266,7 +266,8 @@ static std::shared_ptr<Expr> readCons(const It &start, const It &end) {
             // (1 2 . 3) => { 1 { 2 3 } }
             // (1 2 3)   => { 1 { 2 { 3 nil } } }
             if (currentExpr) {
-                currentExpr->quote(quotes);
+                // Translate quote syntax to (quote ...).
+                currentExpr = currentExpr->quote(quotes);
                 quotes = 0;
 
                 if (haveDot) {
@@ -321,15 +322,11 @@ static Eptr read(const std::vector<Token> &tokens) {
         || tokens[i].type == Token::Type::ATOM_STRING
         || tokens[i].type == Token::Type::ATOM_SYMBOL) {
 
-        auto atom = readAtom(tokens[i]);
-        atom->quote(quotes);
-        return atom;
+        return readAtom(tokens[i])->quote(quotes);
 
     } else if (tokens[i].type == Token::Type::LIST_START) {
         
-        auto cons = readCons(tokens.begin()+i, tokens.end());
-        cons->quote(quotes);
-        return cons;
+        return readCons(tokens.begin()+i, tokens.end())->quote(quotes);
 
     } else {
         throw LogicError("Unsupported token type");

@@ -8,19 +8,22 @@
 #include "expression.hh"
 #include "function.hh"
 
-std::string Expr::repr() const {
-    std::string s;
-    s.resize(quoteLevel, '\'');
-    return s + repr2();
-}
+Eptr Expr::quote(int count) {
 
-Eptr Expr::eval(Env &env) {
-    if (quoteLevel) {
-        quoteLevel--;
-        return shared_from_this();
-    } else {
-        return eval2(env);
+    Eptr current = shared_from_this();
+
+    for (int i = 0; i < count; i++) {
+        auto quoteCons = std::make_shared<ConsExpr>();
+        auto innerCons = std::make_shared<ConsExpr>();
+        innerCons->getCar() = current;
+        innerCons->getCdr() = std::make_shared<SymbolExpr>("nil");
+        quoteCons->getCar() = std::make_shared<SymbolExpr>("quote");
+        quoteCons->getCdr() = innerCons;
+
+        current = quoteCons;
     }
+
+    return current;
 }
 
 bool ConsExpr::isList() const {
@@ -28,12 +31,22 @@ bool ConsExpr::isList() const {
             || cdr->isNil());
 }
 
-std::string ConsExpr::repr2() const {
+std::string ConsExpr::repr() const {
 
     if (!car)
         throw LogicError("Null car");
     if (!cdr)
         throw LogicError("Null car");
+
+    if (car->type() == Expr::Type::SYMBOL
+        && static_cast<SymbolExpr*>(car.get())->getValue() == "quote"
+        && cdr->type() == Expr::Type::CONS
+        && static_cast<ConsExpr*>(cdr.get())->cdr->isNil()) {
+
+        // This cons is a (quote ...) form with a single parameter.
+
+        return "'"s + static_cast<ConsExpr*>(cdr.get())->car->repr();
+    }
 
     if (isNil())
         return "nil";
@@ -63,7 +76,7 @@ std::string ConsExpr::repr2() const {
     return s + ")";
 }
 
-Eptr ConsExpr::eval2(Env &env) {
+Eptr ConsExpr::eval(Env &env) {
     if (!car)
         throw LogicError("Null car");
     if (!cdr)
@@ -77,9 +90,6 @@ Eptr ConsExpr::eval2(Env &env) {
 
     auto symExpr = static_cast<const SymbolExpr*>(car.get());
 
-    if (symExpr->getQuoteLevel())
-        throw ProgramError("Invalid function call: quoted symbol");
-
     Symbol &sym = env.lookup(symExpr->getValue());
 
     if (!sym.asFunction)
@@ -87,13 +97,19 @@ Eptr ConsExpr::eval2(Env &env) {
             
     Elist parameters;
 
-    // Evaluate all cars in the parameter chain.
+    // Loop through the cars in the parameter chain.
 
     if (!cdr->isNil()) {
         // Since this->isList(), cdr must be a cons.
         const ConsExpr *paramsCons = static_cast<ConsExpr*>(cdr.get());
-        for (const ConsExpr *cons : *paramsCons)
-            parameters.push_back(std::move(cons->car->eval(env)));
+
+        // Only evaluate car if this isn't a special form / macro.
+        if (sym.asFunction->isSpecial())
+            for (const ConsExpr *cons : *paramsCons)
+                parameters.push_back(std::move(cons->car));
+        else
+            for (const ConsExpr *cons : *paramsCons)
+                parameters.push_back(std::move(cons->car->eval(env)));
     }
 
     return (*sym.asFunction)(std::move(parameters), env);
