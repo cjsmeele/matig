@@ -11,6 +11,10 @@
     static Eptr MATIG_FUNNAME(name) (Elist parameters, Env &env)
 
 DEFUN(print) {
+    // TODO: Function signatures.
+    if (parameters.size() != 1)
+        throw ProgramError("Incorrect parameter count");
+
     std::cout << parameters.at(0)->repr() << "\n";
     return std::move(parameters.at(0));
 }

@@ -28,6 +28,9 @@ std::string ConsExpr::repr2() const {
     if (!cdr)
         throw LogicError("Null car");
 
+    if (isNil())
+        return "nil";
+
     std::string s = "(";
 
     if (isList()) {

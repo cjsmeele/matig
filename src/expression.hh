@@ -140,6 +140,13 @@ class ConsExpr : public Expr {
 
 public:
     Type type() const override { return Type::CONS; }
+    bool isNil() const override {
+        if (!car)
+            throw LogicError("Null car");
+        if (!cdr)
+            throw LogicError("Null car");
+        return car->isNil() && cdr->isNil();
+    }
 
     std::string repr2() const override;
 

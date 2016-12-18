@@ -26,6 +26,32 @@ void Env::set(const std::string &name, Function &value) {
 Env::Env(Env *parent)
     : parent(parent) {
 
-    // XXX
-    registerBuiltinFunctions(*this);
+    // XXX This shouldn't be here.
+    if (!parent) {
+        registerBuiltinFunctions(*this);
+        {
+            Symbol sym;
+            // auto nilExpr = std::make_shared<ConsExpr>();
+            // nilExpr->getCar() = nilExpr;
+            // nilExpr->getCdr() = nilExpr;
+            auto nilExpr = std::make_shared<SymbolExpr>("nil");
+            sym.asExpr = nilExpr;
+            sym.asFunction = nullptr;
+            set("nil", sym);
+        }
+        {
+            Symbol sym;
+            auto expr = std::make_shared<SymbolExpr>("t");
+            sym.asExpr = expr;
+            sym.asFunction = nullptr;
+            set("t", sym);
+        }
+        {
+            Symbol sym;
+            auto expr = std::make_shared<NumericExpr>(539);
+            sym.asExpr = expr;
+            sym.asFunction = nullptr;
+            set("*magic*", sym);
+        }
+    }
 }
