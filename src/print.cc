@@ -1,6 +1,6 @@
 #include "print.hh"
 
-void print(const Expression &expr, int depth) {
+void print(const Expr &expr, int depth) {
     std::string indent;
     indent.resize(depth, ' ');
 

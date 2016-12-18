@@ -21,6 +21,7 @@ struct Token {
     enum class Type {
         NONE,
         LIST_START,
+        CONS_DOT,
         LIST_END,
         ATOM_STRING,
         ATOM_NUMERIC,

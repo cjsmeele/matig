@@ -8,4 +8,4 @@
 /**
  * \brief Print an expression.
  */
-void print(const Expression &expr, int depth = 0);
+void print(const Expr &expr, int depth = 0);

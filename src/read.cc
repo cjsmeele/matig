@@ -68,6 +68,14 @@ static std::vector<Token> tokenize(std::istream &stream) {
 
                 c = next(false);
 
+            } else if (c == '.') {
+                token.type = Token::Type::CONS_DOT;
+                token.content = c;
+
+                c = next(false);
+                if (!isBreak(c))
+                    throw SyntaxError("Invalid cons dot");
+
             } else if (c == ')') {
                 token.type = Token::Type::LIST_END;
                 token.content = c;
@@ -157,15 +165,15 @@ static std::vector<Token> tokenize(std::istream &stream) {
 /**
  * \brief Create an atom from a token.
  */
-static std::unique_ptr<AtomExpression> readAtom(const Token &token) {
+static std::shared_ptr<AtomExpr> readAtom(const Token &token) {
     if (token.type == Token::Type::ATOM_NUMERIC) {
-        return std::make_unique<NumericExpression>(std::stoll(token.content));
+        return std::make_shared<NumericExpr>(std::stoll(token.content));
 
     } else if (token.type == Token::Type::ATOM_STRING) {
-        return std::make_unique<StringExpression>(token.content);
+        return std::make_shared<StringExpr>(token.content);
 
     } else if (token.type == Token::Type::ATOM_SYMBOL) {
-        return std::make_unique<SymbolExpression>(token.content);
+        return std::make_shared<SymbolExpr>(token.content);
 
     } else {
         throw LogicError("Not an atom token: '"s + token.content + "'");
@@ -173,27 +181,44 @@ static std::unique_ptr<AtomExpression> readAtom(const Token &token) {
 }
 
 /**
- * \brief Create a list from a series of tokens.
+ * \brief Create a nested cons from a series of tokens.
  */
 template<typename It>
-static std::unique_ptr<ListExpression> readList(const It &start, const It &end) {
+static std::shared_ptr<Expr> readCons(const It &start, const It &end) {
 
     if (start->type != Token::Type::LIST_START)
-        throw LogicError("Tokens do not specify a list (start))");
+        throw LogicError("Tokens do not specify a cons (start))");
     if ((end-1)->type != Token::Type::LIST_END)
-        throw LogicError("Tokens do not specify a list (end)");
+        throw LogicError("Tokens do not specify a cons (end)");
 
     auto size = std::distance(start, end);
 
     if (size > 2) {
-        Elist children;
+        auto rootCons         = std::make_shared<ConsExpr>();
+        ConsExpr *currentCons = rootCons.get();
 
+        bool haveDot = false; // Whether the previous token was a dot.
+
+        // Loop through all tokens within the parentheses.
         for (auto it = start + 1; it != end - 1; it++) {
-            if (it->type == Token::Type::ATOM_NUMERIC
+
+            Eptr currentExpr = nullptr;
+
+            if (it->type == Token::Type::CONS_DOT) {
+                if (haveDot)
+                    throw SyntaxError("Invalid dot syntax (second dot)");
+                if (!currentCons->getCar())
+                    throw SyntaxError("Invalid dot syntax (no car)");
+                if (currentCons->getCdr())
+                    throw SyntaxError("Invalid dot syntax");
+
+                haveDot = true;
+
+            } else if (it->type == Token::Type::ATOM_NUMERIC
                 || it->type == Token::Type::ATOM_STRING
                 || it->type == Token::Type::ATOM_SYMBOL) {
 
-                children.push_back(readAtom(*it));
+                currentExpr = readAtom(*it);
 
             } else if (it->type == Token::Type::LIST_START) {
                 auto subListStart = it;
@@ -211,16 +236,42 @@ static std::unique_ptr<ListExpression> readList(const It &start, const It &end) 
                 if (depth)
                     throw LogicError("Bad list token nesting");
 
-                children.push_back(readList(subListStart, it+1));
+                currentExpr = readCons(subListStart, it+1);
 
             } else {
                 throw LogicError("Bad token type");
             }
+
+            // For reference: Lisp syntax => { car cdr }
+            // (1)       => { 1 nil }
+            // (1 . 2)   => { 1 2 }
+            // (1 2 . 3) => { 1 { 2 3 } }
+            // (1 2 3)   => { 1 { 2 { 3 nil } } }
+            if (currentExpr) {
+                if (haveDot) {
+                    currentCons->getCdr() = currentExpr;
+                    haveDot = false;
+                } else {
+                    if (currentCons->getCar()) {
+                        // Make next cons.
+                        currentCons->getCdr() = std::make_shared<ConsExpr>();
+                        currentCons = static_cast<ConsExpr*>(currentCons->getCdr().get());
+                    }
+                    currentCons->getCar() = currentExpr;
+                }
+            }
         }
-        return std::make_unique<ListExpression>(std::move(children));
+        if (haveDot)
+            throw SyntaxError("Invalid dot syntax");
+
+        if (!currentCons->getCdr())
+            currentCons->getCdr() = std::make_shared<SymbolExpr>("nil");
+
+        return rootCons;
 
     } else {
-        return std::make_unique<ListExpression>();
+        // Empty list.
+        return std::make_shared<SymbolExpr>("nil");
     }
 }
 
@@ -240,7 +291,7 @@ static Eptr read(const std::vector<Token> &tokens) {
 
     } else if (tokens[0].type == Token::Type::LIST_START) {
         
-        return readList(tokens.begin(), tokens.end());
+        return readCons(tokens.begin(), tokens.end());
 
     } else {
         throw LogicError("Unsupported token type");

@@ -57,7 +57,7 @@ class FunctionLisp : public Function {
 public:
     Eptr operator()(std::vector<Eptr> parameters,
                     Environment &env) const {
-        return std::make_unique<NumericExpression>(42);
+        return std::make_unique<NumericExpr>(42);
     }
 };
 

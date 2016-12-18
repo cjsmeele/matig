@@ -3,14 +3,14 @@
 #include "common.hh"
 #include <map>
 
-class Expression;
+class Expr;
 class Function;
 
 struct Symbol {
     // std::string asSymbol;
     // std::string asString;
     // int64_t     asInt;
-    const Expression  *asExpression;
+    const Expr  *asExpr;
     const Function    *asFunction;
 };
 

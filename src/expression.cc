@@ -1,41 +1,84 @@
 #include "expression.hh"
 #include "function.hh"
 
-std::string ListExpression::repr() const {
-    if (children.size()) {
-        std::string s = "(";
-        for (const auto &child : children)
-            s += child->repr() + " ";
-        if (s[s.length()-1] == ' ')
-            s.erase(s.end()-1);
-        s += ")";
-        return s;
-    } else {
-        return "nil";
-    }
+bool ConsExpr::isList() const {
+    return (cdr->type() == Expr::Type::CONS
+            || cdr->isNil());
 }
 
-Eptr ListExpression::eval(Environment &env) const {
-    if (children.size()) {
-        auto &first = children[0];
+std::string ConsExpr::repr() const {
 
-        if (first.get()->type() != Expression::Type::SYMBOL)
-            throw ProgramError("First list element is not a symbol");
-        auto symExpr = static_cast<const SymbolExpression*>(first.get());
+    if (!car)
+        throw LogicError("Null car");
+    if (!cdr)
+        throw LogicError("Null car");
 
-        auto sym = env.lookup(symExpr->repr());
+    std::string s = "(";
 
-        if (!sym.asFunction)
-            throw ProgramError("Symbol's function slot is empty");
+    if (isList()) {
+        for (const ConsExpr *cons : *this) {
+            s += cons->car ? cons->car->repr() : "nil";
+
+            if (cons->isList()) {
+                if (!cons->cdr->isNil())
+                    s += " ";
+            } else {
+                s += " . ";
+                s += cons->cdr ? cons->cdr->repr() : "nil";
+                break;
+            }
+        }
+    } else {
+        s += car ? car->repr() : "nil";
+
+        if (cdr)
+            s += " . " + cdr->repr();
+    }
+
+    return s + ")";
+}
+
+Eptr ConsExpr::eval(Environment &env) const {
+    if (!car)
+        throw LogicError("Null car");
+    if (!cdr)
+        throw LogicError("Null car");
+
+    if (!isList())
+        throw ProgramError("Evaling non-list cons");
+
+    if (car->type() != Type::SYMBOL)
+        throw ProgramError("First list element is not a symbol");
+
+    auto symExpr = static_cast<const SymbolExpr*>(car.get());
+    auto sym     = env.lookup(symExpr->repr());
+
+    if (!sym.asFunction)
+        throw ProgramError("Symbol's function slot is empty");
             
-        Elist parameters;
+    Elist parameters;
 
-        for (auto it = children.begin() + 1; it != children.end(); it++)
-            parameters.push_back((*it)->eval(env));
+    // Walk through the rest of this list.
+    // - Evaluate all cars
+    // - Stop when cdr = nil
 
-        return (*sym.asFunction)(std::move(parameters), env);
+    const Expr *current = cdr.get(); // Current points to the next cons.
+    while (current && !current->isNil()) {
+        if (current->type() != Type::CONS)
+            throw ProgramError("Encountered non-list cdr in eval");
 
-    } else {
-        return std::make_unique<ListExpression>();
+        auto *currentCons = static_cast<const ConsExpr*>(current);
+        if (!currentCons->car)
+            throw LogicError("Evaling cons with empty car");
+
+        parameters.push_back(std::move(currentCons->car->eval(env)));
+
+        current = currentCons->cdr.get();
     }
+
+    return (*sym.asFunction)(std::move(parameters), env);
 }
+
+ConsExpr::Iterator<ConsExpr>       ConsExpr::begin()       { return Iterator<ConsExpr>{this};          }
+ConsExpr::Iterator<const ConsExpr> ConsExpr::begin() const { return Iterator<const ConsExpr>(this);    }
+ConsExpr::Iterator<const ConsExpr> ConsExpr::end()   const { return Iterator<const ConsExpr>{nullptr}; }

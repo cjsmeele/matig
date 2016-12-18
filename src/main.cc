@@ -42,6 +42,7 @@ int main(int argc, char **argv) {
             if (!expr)
                 break;
 
+            // Eptr result = expr;
             Eptr result = eval(*expr);
 
             if (isInteractive)

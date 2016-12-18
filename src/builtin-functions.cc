@@ -18,13 +18,13 @@ DEFUN(print) {
 DEFUN(opPlus) {
     int64_t result = 0;
     for (const auto &expr : parameters) {
-        if (expr.get()->type() != Expression::Type::NUMERIC)
+        if (expr.get()->type() != Expr::Type::NUMERIC)
             throw ProgramError("Parameter is not numeric");
-        auto numExpr = static_cast<const NumericExpression*>(expr.get());
+        auto numExpr = static_cast<const NumericExpr*>(expr.get());
 
         result += numExpr->getValue();
     }
-    return std::make_unique<NumericExpression>(result);
+    return std::make_shared<NumericExpr>(result);
 }
 
 void registerBuiltinFunctions(Environment &env) {
