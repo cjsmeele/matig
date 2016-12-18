@@ -1,3 +1,10 @@
+/**
+ * \file
+ * \brief     Builtin functions.
+ * \author    Chris Smeele
+ * \copyright Copyright (c) 2016, Chris Smeele
+ * \license   TBD, do not redistribute.
+ */
 #include "function.hh"
 
 #include <iostream>
