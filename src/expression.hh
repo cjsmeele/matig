@@ -23,6 +23,7 @@ public:
         STRING,
         SYMBOL,
         CONS,
+        FUNC,
     };
 
     virtual Type type() const = 0;
@@ -118,7 +119,7 @@ class ConsExpr : public Expr {
     struct Iterator {
         T *current;
         const Iterator &operator++() {
-            if (!current->isList())
+            if (!current->isListItem())
                 throw ProgramError("Looping through non-list");
 
             if (current->cdr->isNil())
@@ -152,7 +153,11 @@ public:
      * A true return value guarantees that cdr is either a ConsExpr or
      * nil.
      */
+    bool isListItem() const;
+
     bool isList() const;
+
+    std::vector<Eptr> asList();
 
     const Eptr &getCar() const { return car; }
           Eptr &getCar()       { return car; }

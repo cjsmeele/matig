@@ -31,7 +31,7 @@ static std::vector<Token> tokenize(std::istream &stream) {
     };
 
     auto isBreak = [](char c) -> bool {
-        return (c < ' '
+        return (iscntrl(c)
                 || isspace(c)
                 || c == '('
                 || c == ')');
@@ -139,7 +139,7 @@ static std::vector<Token> tokenize(std::istream &stream) {
                 if (!isBreak(c))
                     throw SyntaxError("Invalid string");
 
-            } else if (c > ' '){
+            } else if (!iscntrl(c)){
                 token.type    = Token::Type::ATOM_SYMBOL;
                 token.content = c;
 
@@ -147,7 +147,7 @@ static std::vector<Token> tokenize(std::istream &stream) {
                     token.content += c;
 
             } else {
-                throw SyntaxError("Unexpected text");
+                throw SyntaxError("Unexpected text: char "s + std::to_string(c));
             }
 
             // End of token.

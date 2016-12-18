@@ -26,9 +26,30 @@ Eptr Expr::quote(int count) {
     return current;
 }
 
-bool ConsExpr::isList() const {
+bool ConsExpr::isListItem() const {
     return (cdr->type() == Expr::Type::CONS
             || cdr->isNil());
+}
+
+bool ConsExpr::isList() const {
+    if (!isListItem())
+        return false;
+
+    for (const auto &cons : *this) {
+        if (!cons->cdr->isNil()
+            && cons->cdr->type() != Expr::Type::CONS)
+            return false;
+    }
+
+    return true;
+}
+
+std::vector<Eptr> ConsExpr::asList() {
+    std::vector<Eptr> list;
+    for (const auto &cons : *this)
+        list.push_back(cons->car);
+
+    return std::move(list);
 }
 
 std::string ConsExpr::repr() const {
@@ -53,11 +74,11 @@ std::string ConsExpr::repr() const {
 
     std::string s = "(";
 
-    if (isList()) {
+    if (isListItem()) {
         for (const ConsExpr *cons : *this) {
             s += cons->car ? cons->car->repr() : "nil";
 
-            if (cons->isList()) {
+            if (cons->isListItem()) {
                 if (!cons->cdr->isNil())
                     s += " ";
             } else {
@@ -82,7 +103,7 @@ Eptr ConsExpr::eval(Env &env) {
     if (!cdr)
         throw LogicError("Null car");
 
-    if (!isList())
+    if (!isListItem())
         throw ProgramError("Evaling non-list cons");
 
     if (car->type() != Type::SYMBOL)
@@ -100,7 +121,7 @@ Eptr ConsExpr::eval(Env &env) {
     // Loop through the cars in the parameter chain.
 
     if (!cdr->isNil()) {
-        // Since this->isList(), cdr must be a cons.
+        // Since this->isListItem(), cdr must be a cons.
         const ConsExpr *paramsCons = static_cast<ConsExpr*>(cdr.get());
 
         // Only evaluate car if this isn't a special form / macro.

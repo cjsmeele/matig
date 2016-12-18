@@ -10,8 +10,27 @@
 #include "common.hh"
 #include "expression.hh"
 
+class FuncExpr : public AtomExpr {
+public:
+    Type type() const override { return Type::FUNC; }
+    std::string repr() const override;
+    Eptr eval(Env &env) override;
+};
+
 class Function {
     // TODO: Function signature.
+
+public:
+    struct Signature {
+        std::vector<std::string> positional;
+        std::string optional;
+        std::string restName;
+    };
+
+protected:
+    Signature sig;
+
+    std::unique_ptr<Env> env;
 
 public:
     virtual bool isSpecial() { return false; }
@@ -19,6 +38,9 @@ public:
     virtual Eptr operator()(std::vector<Eptr> parameters,
                             Env &env) const = 0;
 
+    Function(const Signature &sig)
+        : sig(sig)
+        { }
     virtual ~Function() = default;
 };
 
@@ -36,8 +58,9 @@ public:
         return func(std::move(parameters), env);
     }
 
-    FunctionC(F func)
-        : func(func)
+    FunctionC(F func, const Signature &sig)
+        : Function(sig),
+          func(func)
         { }
 };
 
@@ -53,8 +76,9 @@ public:
         // return body->eval(env);
     }
 
-    FunctionLisp(Eptr body)
-        : body(body)
+    FunctionLisp(Eptr body, const Signature &sig)
+        : Function(sig),
+          body(body)
         { }
 };
 
@@ -62,8 +86,8 @@ class SpecOp : public FunctionC {
 public:
     bool isSpecial() { return true; }
 
-    SpecOp(F func)
-        : FunctionC(func)
+    SpecOp(F func, const Signature &sig)
+        : FunctionC(func, sig)
         { }
 };
 
@@ -71,8 +95,8 @@ class Macro : public FunctionLisp {
 public:
     bool isSpecial() { return true; }
 
-    Macro(Eptr body)
-        : FunctionLisp(body)
+    Macro(Eptr body, const Signature &sig)
+        : FunctionLisp(body, sig)
         { }
 };
 
