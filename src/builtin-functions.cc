@@ -20,7 +20,8 @@
 DEFUN(print) {
     // TODO: Function signatures.
     if (parameters.size() != 1)
-        throw ProgramError("Incorrect parameter count");
+        throw ProgramError("Incorrect parameter count (expected 1, got "s
+                           + std::to_string(parameters.size()) + ")");
 
     std::cout << parameters.at(0)->repr() << "\n";
     return std::move(parameters.at(0));

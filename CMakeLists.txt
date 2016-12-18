@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.6)
 
-project(sigmatig)
-set(EXE "main")
+project(matig)
+set(EXE "matig")
 
 enable_testing()
 

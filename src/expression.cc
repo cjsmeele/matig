@@ -87,27 +87,19 @@ Eptr ConsExpr::eval2(Env &env) {
             
     Elist parameters;
 
-    // Walk through the rest of this list.
-    // - Evaluate all cars
-    // - Stop when cdr = nil
+    // Evaluate all cars in the parameter chain.
 
-    const Expr *current = cdr.get(); // Current points to the next cons.
-    while (current && !current->isNil()) {
-        if (current->type() != Type::CONS)
-            throw ProgramError("Encountered non-list cdr in eval");
-
-        auto *currentCons = static_cast<const ConsExpr*>(current);
-        if (!currentCons->car)
-            throw LogicError("Evaling cons with empty car");
-
-        parameters.push_back(std::move(currentCons->car->eval(env)));
-
-        current = currentCons->cdr.get();
+    if (!cdr->isNil()) {
+        // Since this->isList(), cdr must be a cons.
+        const ConsExpr *paramsCons = static_cast<ConsExpr*>(cdr.get());
+        for (const ConsExpr *cons : *paramsCons)
+            parameters.push_back(std::move(cons->car->eval(env)));
     }
 
     return (*sym.asFunction)(std::move(parameters), env);
 }
 
-ConsExpr::Iterator<ConsExpr>       ConsExpr::begin()       { return Iterator<ConsExpr>{this};          }
+ConsExpr::Iterator<ConsExpr>       ConsExpr::begin()       { return Iterator<ConsExpr>{this};    }
+ConsExpr::Iterator<ConsExpr>       ConsExpr::end()         { return Iterator<ConsExpr>{nullptr}; }
 ConsExpr::Iterator<const ConsExpr> ConsExpr::begin() const { return Iterator<const ConsExpr>(this);    }
 ConsExpr::Iterator<const ConsExpr> ConsExpr::end()   const { return Iterator<const ConsExpr>{nullptr}; }

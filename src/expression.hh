@@ -147,13 +147,6 @@ class ConsExpr : public Expr {
 
 public:
     Type type() const override { return Type::CONS; }
-    bool isNil() const override {
-        if (!car)
-            throw LogicError("Null car");
-        if (!cdr)
-            throw LogicError("Null car");
-        return car->isNil() && cdr->isNil();
-    }
 
     std::string repr2() const override;
 
@@ -173,6 +166,7 @@ public:
     Eptr eval2(Env &env) override;
 
     Iterator<ConsExpr> begin();
+    Iterator<ConsExpr> end();
     Iterator<const ConsExpr> begin() const;
     Iterator<const ConsExpr> end() const;
 
