@@ -18,6 +18,24 @@
 
 #include <unistd.h>
 
+static void slurpShebang(std::istream &stream) {
+    char c, c2;
+    if (!stream.get(c)) throw ProgramError("Unexpected EOF");
+    if (c == '#') {
+        if (!stream.get(c2)) throw ProgramError("Unexpected EOF");
+        if (c2 == '!') {
+            do {
+                stream.get(c);
+            } while (c != '\n' && stream);
+        } else {
+            if (!stream.putback(c2)) throw std::runtime_error("Could not istream::putback char 2");
+            if (!stream.putback(c)) throw std::runtime_error("Could not istream::putback char 1");
+        }
+    } else {
+        if (!stream.putback(c)) throw std::runtime_error("Could not istream::putback char 1");
+    }
+}
+
 int main(int argc, char **argv) {
 
     std::istream  *in = &std::cin;
@@ -36,6 +54,9 @@ int main(int argc, char **argv) {
         in = &file;
 
     bool isInteractive = in == &std::cin && isatty(fileno(stdin));
+
+    if (!isInteractive)
+        slurpShebang(*in);
 
     Env env;
 
