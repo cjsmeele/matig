@@ -12,5 +12,10 @@
 
 /**
  * \brief Evaluate an expression.
+ *
+ * \param expr The expression to evaluate
+ * \param env  The environment in which the expression will be evaluated
+ *
+ * \return The evaluation result
  */
 Eptr eval(Expr &expr, Env &env);

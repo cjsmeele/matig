@@ -18,6 +18,12 @@
 
 #include <unistd.h>
 
+/**
+ * \brief Remove an optional shebang (#! line) from the beginning of a
+ *        stream.
+ *
+ * \param stream
+ */
 static void slurpShebang(std::istream &stream) {
     char c, c2;
     if (!stream.get(c)) throw ProgramError("Unexpected EOF");

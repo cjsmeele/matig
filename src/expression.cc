@@ -26,11 +26,6 @@ Eptr Expr::quote(int count) {
     return current;
 }
 
-bool ConsExpr::isListItem() const {
-    return (cdr->type() == Expr::Type::CONS
-            || cdr->isNil());
-}
-
 bool ConsExpr::isList() const {
     if (!isListItem())
         return false;

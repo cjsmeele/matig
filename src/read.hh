@@ -24,6 +24,9 @@ public:
         : ProgramError("Syntax error: " + s) { }
 };
 
+/**
+ * \brief Token class.
+ */
 struct Token {
     enum class Type {
         NONE,
@@ -47,5 +50,9 @@ struct Token {
 
 /**
  * \brief Read one textual expression into an s-expression.
+ *
+ * \param stream The stream to read an expression from
+ *
+ * \return An expression pointer
  */
 Eptr read(std::istream &stream);

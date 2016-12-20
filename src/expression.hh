@@ -16,6 +16,9 @@ class Expr;
 typedef std::shared_ptr<Expr> Eptr;
 typedef std::vector<Eptr> Elist;
 
+/**
+ * \brief S-Expression type.
+ */
 class Expr : public std::enable_shared_from_this<Expr> {
 public:
     enum class Type {
@@ -29,16 +32,39 @@ public:
     virtual Type type() const = 0;
     virtual bool isNil() const { return false; }
 
+    /**
+     * \brief Get the textual representation of the expression.
+     */
     virtual std::string repr() const = 0;
-    virtual Eptr        eval(Env &env) = 0;
 
+    /**
+     * \brief Evaluate the expression.
+     *
+     * \return The evaluation result.
+     */
+    virtual Eptr eval(Env &env) = 0;
+
+    /**
+     * \brief Quote an expression.
+     *
+     * \param n The amount of quote levels to add
+     *
+     * \return An expression containing n levels of `(quote ...)`,
+     *         containing this expression.
+     */
     Eptr quote(int n = 1) __attribute__((warn_unused_result));
 
     virtual ~Expr() = default;
 };
 
+/**
+ * \brief Atom Expression type.
+ */
 class AtomExpr : public Expr { };
 
+/**
+ * \brief Numeric atom Expression type.
+ */
 class NumericExpr : public AtomExpr {
 
     int64_t value;
@@ -60,6 +86,9 @@ public:
         : value(value) { }
 };
 
+/**
+ * \brief String atom Expression type.
+ */
 class StringExpr : public AtomExpr {
 
     std::string value;
@@ -83,6 +112,9 @@ public:
         : value(value) { }
 };
 
+/**
+ * \brief Symbol atom Expression type.
+ */
 class SymbolExpr : public AtomExpr {
 
     std::string value;
@@ -110,11 +142,20 @@ public:
         : value(value) { }
 };
 
+/**
+ * \brief Cons Expression type.
+ */
 class ConsExpr : public Expr {
 
     Eptr car;
     Eptr cdr;
 
+    /**
+     * \brief Cons iterator.
+     *
+     * This, in combination with ConsExpr::begin() and ConsExpr::end()
+     * allow iterating over a linked-list using for(:).
+     */
     template<class T>
     struct Iterator {
         T *current;
@@ -148,13 +189,24 @@ public:
     std::string repr() const override;
 
     /**
-     * \brief Check if this cons can be approached as a linked list.
+     * \brief Check if this cons can be approached as an item in a
+     *        linked list.
      *
-     * A true return value guarantees that cdr is either a ConsExpr or
+     * A true return value indicates that cdr is either a ConsExpr or
      * nil.
      */
-    bool isListItem() const;
+    bool isListItem() const {
+        return (cdr->type() == Expr::Type::CONS
+                || cdr->isNil());
+    }
 
+    /**
+     * \brief Check if this cons and all linked cdrs form a linked
+     *        list.
+     *
+     * When true, it is safe to iterate over this list with a ranged
+     * for loop.
+     */
     bool isList() const;
 
     std::vector<Eptr> asList();
