@@ -22,6 +22,8 @@ public:
     std::string repr() const override;
     Eptr eval(EnvPtr env) override;
 
+    std::string getDoc() const;
+
     Fptr getValue() { return func; }
 
     FuncExpr(Fptr func)
@@ -56,7 +58,11 @@ private:
     std::unique_ptr<Env> env;
 
 public:
-    bool isSpecial() { return special; }
+    bool isSpecial() const { return special; }
+    std::string getDoc() const {
+        // TODO: Prepend synopsis based on signature?
+        return doc;
+    }
 
     virtual Eptr operator()(std::vector<Eptr> parameters,
                             EnvPtr env) const = 0;

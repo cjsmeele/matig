@@ -54,6 +54,13 @@ public:
      */
     Eptr quote(int n = 1) __attribute__((warn_unused_result));
 
+    /**
+     * \brief Get documentation on an expression.
+     *
+     * \return A string describing the expression.
+     */
+    virtual std::string getDoc() const { return ""; };
+
     virtual ~Expr() = default;
 };
 

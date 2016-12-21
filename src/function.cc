@@ -15,3 +15,7 @@ Eptr FuncExpr::eval(EnvPtr env) {
     // TODO.
     return std::make_shared<SymbolExpr>("nil");
 }
+
+std::string FuncExpr::getDoc() const {
+    return func->getDoc();
+}

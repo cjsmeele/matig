@@ -127,4 +127,25 @@ void registerBuiltinFunctions(Env &env) {
 
             return std::move(expr2);
         })));
+
+    env.setHere("doc", std::make_shared<FuncC>(FuncC(
+        { {"symbol"} },
+        "",
+        "Print documentation on SYMBOL.",
+        false,
+        [](Elist parameters, EnvPtr env) {
+
+            auto expr1 = parameters.at(0);
+            if (expr1->type() != Expr::Type::SYMBOL)
+                throw ProgramError("First parameter to DOC must be a symbol");
+
+            auto sym = env->lookup(static_cast<SymbolExpr*>(expr1.get())->getValue());
+            if (sym->type() == Expr::Type::FUNC) {
+                std::cout << static_cast<FuncExpr*>(sym.get())->getDoc() << "\n";
+            } else {
+                throw LogicError("Unimplemented");
+            }
+
+            return std::make_shared<SymbolExpr>("nil");
+        })));
 }
