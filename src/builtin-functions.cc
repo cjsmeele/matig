@@ -148,4 +148,34 @@ void registerBuiltinFunctions(Env &env) {
 
             return std::make_shared<SymbolExpr>("nil");
         })));
+
+    env.setHere("car", std::make_shared<FuncC>(FuncC(
+        { {"cons"} },
+        "",
+        "Return the car of CONS.",
+        false,
+        [](Elist parameters, EnvPtr env) {
+
+            auto expr = parameters.at(0);
+            if (expr->type() != Expr::Type::CONS)
+                throw ProgramError("First parameter to CAR must be a cons");
+
+            auto cons = static_cast<ConsExpr*>(expr.get());
+            return cons->getCar();
+        })));
+
+    env.setHere("cdr", std::make_shared<FuncC>(FuncC(
+        { {"cons"} },
+        "",
+        "Return the cdr of CONS.",
+        false,
+        [](Elist parameters, EnvPtr env) {
+
+            auto expr = parameters.at(0);
+            if (expr->type() != Expr::Type::CONS)
+                throw ProgramError("First parameter to CAR must be a cons");
+
+            auto cons = static_cast<ConsExpr*>(expr.get());
+            return cons->getCdr();
+        })));
 }
