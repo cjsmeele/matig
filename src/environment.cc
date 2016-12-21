@@ -10,59 +10,51 @@
 
 #include <iostream>
 
-Symbol &Env::lookup(const std::string &name) {
+
+void Env::setHere(const std::string &name, Eptr expr) {
+    symbols[name] = expr;
+}
+
+void Env::setDeepest(const std::string &name, Eptr expr) {
+    auto it = symbols.find(name);
+    if (it == symbols.end()) {
+        if (parent)
+            parent->setDeepest(name, expr);
+        else 
+            setHere(name, expr);
+    } else {
+        setHere(name, expr);
+    }
+}
+
+void Env::setHere(const std::string &name, Fptr func) {
+    setHere(name, std::make_shared<FuncExpr>(func));
+}
+void Env::setDeepest(const std::string &name, Fptr func) {
+    setDeepest(name, std::make_shared<FuncExpr>(func));
+}
+
+Eptr Env::lookup(const std::string &name) {
     auto it = symbols.find(name);
     if (it == symbols.end()) {
         if (parent)
             return parent->lookup(name);
         else 
-            throw ProgramError("Symbol '"s + name + "' does not exist");
+            throw SymbolNotFound(name);
     } else {
         return it->second;
     }
 }
 
-void Env::set(const std::string &name, const Symbol &value) {
-    symbols[name] = value;
-}
-
-void Env::set(const std::string &name, Eptr expr) {
-    symbols[name].expr = expr;
-}
-
-void Env::set(const std::string &name, Fptr function) {
-    symbols[name].function = function;
-}
-
 Env::Env(EnvPtr parent)
     : parent(parent) {
 
-    // XXX This shouldn't be here.
     if (!parent) {
         registerBuiltinFunctions(*this);
-        {
-            Symbol sym;
-            // auto nilExpr = std::make_shared<ConsExpr>();
-            // nilExpr->getCar() = nilExpr;
-            // nilExpr->getCdr() = nilExpr;
-            auto nilExpr = std::make_shared<SymbolExpr>("nil");
-            sym.expr = nilExpr;
-            sym.function = nullptr;
-            set("nil", sym);
-        }
-        {
-            Symbol sym;
-            auto expr = std::make_shared<SymbolExpr>("t");
-            sym.expr = expr;
-            sym.function = nullptr;
-            set("t", sym);
-        }
-        {
-            Symbol sym;
-            auto expr = std::make_shared<NumericExpr>(539);
-            sym.expr = expr;
-            sym.function = nullptr;
-            set("*magic*", sym);
-        }
+
+        setHere("nil",             std::make_shared<SymbolExpr>("nil"));
+        setHere("t",               std::make_shared<SymbolExpr>("t"));
+        setHere("*matig-version*", std::make_shared<NumericExpr>(0));
+        setHere("*magic*",         std::make_shared<NumericExpr>(539));
     }
 }

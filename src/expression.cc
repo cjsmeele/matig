@@ -106,10 +106,12 @@ Eptr ConsExpr::eval(EnvPtr env) {
 
     auto symExpr = static_cast<const SymbolExpr*>(car.get());
 
-    Symbol &sym = env->lookup(symExpr->getValue());
+    Eptr sym = env->lookup(symExpr->getValue());
 
-    if (!sym.function)
-        throw ProgramError("Symbol's function slot is empty");
+    if (!sym || sym->type() != Expr::Type::FUNC)
+        throw ProgramError("Symbol does not point to a function");
+
+    Fptr func = static_cast<FuncExpr*>(sym.get())->getValue();
             
     Elist parameters;
 
@@ -120,7 +122,7 @@ Eptr ConsExpr::eval(EnvPtr env) {
         const ConsExpr *paramsCons = static_cast<ConsExpr*>(cdr.get());
 
         // Only evaluate car if this isn't a special form / macro.
-        if (sym.function->isSpecial())
+        if (func->isSpecial())
             for (const ConsExpr *cons : *paramsCons)
                 parameters.push_back(std::move(cons->car));
         else
@@ -128,7 +130,7 @@ Eptr ConsExpr::eval(EnvPtr env) {
                 parameters.push_back(std::move(cons->car->eval(env)));
     }
 
-    return (*sym.function)(std::move(parameters), env);
+    return (*func)(std::move(parameters), env);
 }
 
 ConsExpr::Iterator<ConsExpr>       ConsExpr::begin()       { return Iterator<ConsExpr>{this};    }

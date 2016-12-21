@@ -11,16 +11,16 @@
 
 void registerBuiltinFunctions(Env &env) {
 
-    env.set("quote", std::make_shared<FuncC>(FuncC(
-        { {"thing"} }, "", "",
+    env.setHere("quote", std::make_shared<FuncC>(FuncC(
+        { {"thing"} }, "",
         "Return expression THING without evaluating it.",
         true,
         [](Elist parameters, EnvPtr env) {
             return std::move(parameters.at(0));
         })));
 
-    env.set("print", std::make_shared<FuncC>(FuncC(
-        { {"thing"} }, "", "",
+    env.setHere("print", std::make_shared<FuncC>(FuncC(
+        { {"thing"} }, "",
         "Print the textual representation of THING and return it.",
         false,
         [](Elist parameters, EnvPtr env) {
@@ -28,8 +28,8 @@ void registerBuiltinFunctions(Env &env) {
             return std::move(parameters.at(0));
         })));
     
-    env.set("let", std::make_shared<FuncC>(FuncC(
-        { {"decls"} }, "", "body",
+    env.setHere("let", std::make_shared<FuncC>(FuncC(
+        { {"decls"} }, "body",
         "Bind DECLS in a new environment, and evaluate BODY in the new environment.",
         true,
         [](Elist parameters, EnvPtr env) {
@@ -64,16 +64,14 @@ void registerBuiltinFunctions(Env &env) {
                             throw ProgramError("Invalid let syntax (3)");
 
                         auto symExpr = static_cast<SymbolExpr*>(declList[0].get());
-                        Symbol sym;
-                        sym.expr = declList[1]->eval(env);
-                        subEnv->set(symExpr->getValue(), sym);
+                        subEnv->setHere(symExpr->getValue(),
+                                        declList[1]->eval(env));
 
                     } else if (car->type() == Expr::Type::SYMBOL) {
                         // (sym) declaration (sym is set to nil).
                         auto symExpr = static_cast<SymbolExpr*>(car.get());
-                        Symbol sym;
-                        sym.expr = std::make_shared<SymbolExpr>("nil");
-                        subEnv->set(symExpr->getValue(), sym);
+                        subEnv->setHere(symExpr->getValue(),
+                                        std::make_shared<SymbolExpr>("nil"));
                     } else {
                         throw ProgramError("Invalid let syntax (0)");
                     }
@@ -94,8 +92,8 @@ void registerBuiltinFunctions(Env &env) {
             return std::move(result);
         })));
 
-    env.set("+", std::make_shared<FuncC>(FuncC(
-        { }, "", "rest",
+    env.setHere("+", std::make_shared<FuncC>(FuncC(
+        { }, "rest",
         "Sum all numerics in REST.",
         false,
         [](Elist parameters, EnvPtr env) {
@@ -108,5 +106,25 @@ void registerBuiltinFunctions(Env &env) {
                 result += numExpr->getValue();
             }
             return std::make_shared<NumericExpr>(result);
+        })));
+
+    env.setHere("set", std::make_shared<FuncC>(FuncC(
+        { {"symbol"},
+          { "value", std::make_shared<SymbolExpr>("nil") } },
+        "",
+        "Set SYMBOL to VALUE, return VALUE.",
+        false,
+        [](Elist parameters, EnvPtr env) {
+
+            auto expr1 = parameters.at(0);
+            auto expr2 = parameters.at(1);
+
+            if (expr1->type() != Expr::Type::SYMBOL)
+                throw ProgramError("First parameter to SET must be a symbol");
+
+            env->setDeepest(static_cast<SymbolExpr*>(expr1.get())->getValue(),
+                            expr2);
+
+            return std::move(expr2);
         })));
 }

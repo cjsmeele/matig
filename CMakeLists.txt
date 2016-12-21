@@ -39,6 +39,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(sources
     src/main.cc
     src/expression.cc
+    src/function.cc
     src/environment.cc
     src/builtin-functions.cc
     src/read.cc

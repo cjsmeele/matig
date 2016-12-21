@@ -14,10 +14,19 @@ class Func;
 typedef std::shared_ptr<Func> Fptr;
 
 class FuncExpr : public AtomExpr {
+
+    Fptr func;
+
 public:
     Type type() const override { return Type::FUNC; }
     std::string repr() const override;
     Eptr eval(EnvPtr env) override;
+
+    Fptr getValue() { return func; }
+
+    FuncExpr(Fptr func)
+        : func(func)
+        { }
 };
 
 class Func {
@@ -36,7 +45,6 @@ public:
 
     struct Signature {
         std::vector<ParamSpec> positional;
-        std::string optional;
         std::string rest;
     };
 
@@ -76,12 +84,11 @@ public:
     }
 
     FuncC(const std::vector<ParamSpec> &parameters,
-          const std::string &optionalName,
           const std::string &restName,
           const std::string &doc,
           bool special,
           Ftype func)
-        : Func(Signature{parameters, optionalName, restName},
+        : Func(Signature{parameters, restName},
                special,
                doc),
           func(func)
@@ -98,8 +105,14 @@ public:
     Eptr operator()(std::vector<Eptr> parameters,
                     EnvPtr env) const {
 
-        return std::make_shared<NumericExpr>(42);
-        return body->eval(env);
+        if (!context)
+            throw LogicError("Null Lisp function context");
+
+        EnvPtr evalCtx = std::make_shared<Env>(context);
+
+        // TODO: bind parameters.
+
+        return body->eval(evalCtx);
     }
 
     FuncLisp(EnvPtr context,

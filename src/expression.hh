@@ -132,7 +132,7 @@ public:
           std::string &getValue()       { return value; }
 
     Eptr eval(EnvPtr env) override {
-        Eptr expr = env->lookup(value).expr;
+        Eptr expr = env->lookup(value);
         if (!expr)
             throw ProgramError("Symbols value as expression is void");
         return expr;
