@@ -15,4 +15,4 @@
 /**
  * \brief Print an expression.
  */
-void print(const Expr &expr, int depth = 0);
+void print(Eptr expr, int depth = 0);

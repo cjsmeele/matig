@@ -179,7 +179,7 @@ static std::vector<Token> tokenize(std::istream &stream) {
 /**
  * \brief Create an atom from a token.
  */
-static std::shared_ptr<AtomExpr> readAtom(const Token &token) {
+static Eptr readAtom(const Token &token) {
     if (token.type == Token::Type::ATOM_NUMERIC) {
         return std::make_shared<NumericExpr>(std::stoll(token.content));
 
@@ -198,7 +198,7 @@ static std::shared_ptr<AtomExpr> readAtom(const Token &token) {
  * \brief Create a nested cons from a series of tokens.
  */
 template<typename It>
-static std::shared_ptr<Expr> readCons(const It &start, const It &end) {
+static Eptr readCons(const It &start, const It &end) {
 
     if (start->type != Token::Type::LIST_START)
         throw LogicError("Tokens do not specify a cons (start))");

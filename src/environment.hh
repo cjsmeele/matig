@@ -12,27 +12,29 @@
 
 class Expr;
 typedef std::shared_ptr<Expr> Eptr;
-class Function;
+
+class Func;
+typedef std::shared_ptr<Func> Fptr;
+
+class Env;
+typedef std::shared_ptr<Env> EnvPtr;
 
 struct Symbol {
-    // std::string asSymbol;
-    // std::string asString;
-    // int64_t     asInt;
-    Eptr      asExpr;
-    Function *asFunction;
+    Eptr expr;
+    Fptr function;
 };
 
 class Env {
+
     std::map<std::string, Symbol> symbols;
-    Env *parent;
+    EnvPtr parent;
+
 public:
     Symbol &lookup(const std::string &name);
 
     void set(const std::string &name, const Symbol &value);
-    void set(const std::string &name, Function &value);
+    void set(const std::string &name, Eptr expr);
+    void set(const std::string &name, Fptr function);
 
-    // Env(Env *parent = nullptr)
-    //     : parent(parent) {
-    // }
-    Env(Env *parent = nullptr);
+    Env(EnvPtr parent = nullptr);
 };

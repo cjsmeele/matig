@@ -10,93 +10,106 @@
 #include "common.hh"
 #include "expression.hh"
 
+class Func;
+typedef std::shared_ptr<Func> Fptr;
+
 class FuncExpr : public AtomExpr {
 public:
     Type type() const override { return Type::FUNC; }
     std::string repr() const override;
-    Eptr eval(Env &env) override;
+    Eptr eval(EnvPtr env) override;
 };
 
-class Function {
-    // TODO: Function signature.
+class Func {
 
 public:
-    struct Signature {
-        std::vector<std::string> positional;
-        std::string optional;
-        std::string restName;
+    struct ParamSpec {
+        std::string name;
+        Eptr defaultValue;
+
+        ParamSpec(const std::string &name,
+                  Eptr defaultValue = nullptr)
+            : name(name),
+              defaultValue(defaultValue)
+            { }
     };
 
-protected:
-    Signature sig;
+    struct Signature {
+        std::vector<ParamSpec> positional;
+        std::string optional;
+        std::string rest;
+    };
+
+private:
+    Signature signature;
+    bool special;
+    std::string doc;
 
     std::unique_ptr<Env> env;
 
 public:
-    virtual bool isSpecial() { return false; }
+    bool isSpecial() { return special; }
 
     virtual Eptr operator()(std::vector<Eptr> parameters,
-                            Env &env) const = 0;
+                            EnvPtr env) const = 0;
 
-    Function(const Signature &sig)
-        : sig(sig)
+    Func(const Signature &signature,
+         bool special,
+         const std::string &doc)
+        : signature(signature),
+          special(special),
+          doc(doc)
         { }
-    virtual ~Function() = default;
 };
 
-class FunctionC : public Function {
-protected:
-    typedef std::function<Eptr(std::vector<Eptr>, Env&)> F;
+class FuncC : public Func {
 
-private:
-    F func;
+    typedef std::function<Eptr(std::vector<Eptr>, EnvPtr)> Ftype;
+
+    Ftype func;
 
 public:
     Eptr operator()(std::vector<Eptr> parameters,
-                    Env &env) const {
+                    EnvPtr env) const {
 
         return func(std::move(parameters), env);
     }
 
-    FunctionC(F func, const Signature &sig)
-        : Function(sig),
+    FuncC(const std::vector<ParamSpec> &parameters,
+          const std::string &optionalName,
+          const std::string &restName,
+          const std::string &doc,
+          bool special,
+          Ftype func)
+        : Func(Signature{parameters, optionalName, restName},
+               special,
+               doc),
           func(func)
         { }
 };
 
-class FunctionLisp : public Function {
+class FuncLisp : public Func {
 
     Eptr body;
 
+    EnvPtr context;
+
 public:
     Eptr operator()(std::vector<Eptr> parameters,
-                    Env &env) const {
+                    EnvPtr env) const {
 
         return std::make_shared<NumericExpr>(42);
-        // return body->eval(env);
+        return body->eval(env);
     }
 
-    FunctionLisp(Eptr body, const Signature &sig)
-        : Function(sig),
-          body(body)
-        { }
-};
-
-class SpecOp : public FunctionC {
-public:
-    bool isSpecial() { return true; }
-
-    SpecOp(F func, const Signature &sig)
-        : FunctionC(func, sig)
-        { }
-};
-
-class Macro : public FunctionLisp {
-public:
-    bool isSpecial() { return true; }
-
-    Macro(Eptr body, const Signature &sig)
-        : FunctionLisp(body, sig)
+    FuncLisp(EnvPtr context,
+             const Signature &sig,
+             const std::string &doc,
+             bool special,
+             Eptr body)
+        : Func(sig, special, doc),
+          body(body),
+          context(context)
         { }
 };
 

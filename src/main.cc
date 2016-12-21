@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
     if (!isInteractive)
         slurpShebang(*in);
 
-    Env env;
+    EnvPtr rootEnv = std::make_shared<Env>();
 
     while (true) {
         if (isInteractive) {
@@ -79,10 +79,10 @@ int main(int argc, char **argv) {
                 break;
 
             // Eptr result = expr;
-            Eptr result = eval(*expr, env);
+            Eptr result = eval(expr, rootEnv);
 
             if (isInteractive)
-                print(*result);
+                print(result);
 
         } catch (ProgramError &e) {
             std::cerr << "Program error: " << e.what() << "\n";

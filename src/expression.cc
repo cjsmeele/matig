@@ -52,7 +52,7 @@ std::string ConsExpr::repr() const {
     if (!car)
         throw LogicError("Null car");
     if (!cdr)
-        throw LogicError("Null car");
+        throw LogicError("Null cdr");
 
     if (car->type() == Expr::Type::SYMBOL
         && static_cast<SymbolExpr*>(car.get())->getValue() == "quote"
@@ -92,11 +92,11 @@ std::string ConsExpr::repr() const {
     return s + ")";
 }
 
-Eptr ConsExpr::eval(Env &env) {
+Eptr ConsExpr::eval(EnvPtr env) {
     if (!car)
         throw LogicError("Null car");
     if (!cdr)
-        throw LogicError("Null car");
+        throw LogicError("Null cdr");
 
     if (!isListItem())
         throw ProgramError("Evaling non-list cons");
@@ -106,9 +106,9 @@ Eptr ConsExpr::eval(Env &env) {
 
     auto symExpr = static_cast<const SymbolExpr*>(car.get());
 
-    Symbol &sym = env.lookup(symExpr->getValue());
+    Symbol &sym = env->lookup(symExpr->getValue());
 
-    if (!sym.asFunction)
+    if (!sym.function)
         throw ProgramError("Symbol's function slot is empty");
             
     Elist parameters;
@@ -120,7 +120,7 @@ Eptr ConsExpr::eval(Env &env) {
         const ConsExpr *paramsCons = static_cast<ConsExpr*>(cdr.get());
 
         // Only evaluate car if this isn't a special form / macro.
-        if (sym.asFunction->isSpecial())
+        if (sym.function->isSpecial())
             for (const ConsExpr *cons : *paramsCons)
                 parameters.push_back(std::move(cons->car));
         else
@@ -128,7 +128,7 @@ Eptr ConsExpr::eval(Env &env) {
                 parameters.push_back(std::move(cons->car->eval(env)));
     }
 
-    return (*sym.asFunction)(std::move(parameters), env);
+    return (*sym.function)(std::move(parameters), env);
 }
 
 ConsExpr::Iterator<ConsExpr>       ConsExpr::begin()       { return Iterator<ConsExpr>{this};    }

@@ -42,7 +42,7 @@ public:
      *
      * \return The evaluation result.
      */
-    virtual Eptr eval(Env &env) = 0;
+    virtual Eptr eval(EnvPtr env) = 0;
 
     /**
      * \brief Quote an expression.
@@ -78,7 +78,7 @@ public:
 
     int64_t getValue() const { return value; }
     
-    Eptr eval(Env &env) override {
+    Eptr eval(EnvPtr env) override {
         return shared_from_this();
     }
 
@@ -104,7 +104,7 @@ public:
     const std::string &getValue() const { return value; }
           std::string &getValue()       { return value; }
 
-    Eptr eval(Env &env) override {
+    Eptr eval(EnvPtr env) override {
         return shared_from_this();
     }
 
@@ -131,8 +131,8 @@ public:
     const std::string &getValue() const { return value; }
           std::string &getValue()       { return value; }
 
-    Eptr eval(Env &env) override {
-        Eptr expr = env.lookup(value).asExpr;
+    Eptr eval(EnvPtr env) override {
+        Eptr expr = env->lookup(value).expr;
         if (!expr)
             throw ProgramError("Symbols value as expression is void");
         return expr;
@@ -216,7 +216,7 @@ public:
     const Eptr &getCdr() const { return cdr; }
           Eptr &getCdr()       { return cdr; }
 
-    Eptr eval(Env &env) override;
+    Eptr eval(EnvPtr env) override;
 
     Iterator<ConsExpr> begin();
     Iterator<ConsExpr> end();

@@ -26,11 +26,15 @@ void Env::set(const std::string &name, const Symbol &value) {
     symbols[name] = value;
 }
 
-void Env::set(const std::string &name, Function &value) {
-    symbols[name].asFunction = &value;
+void Env::set(const std::string &name, Eptr expr) {
+    symbols[name].expr = expr;
 }
 
-Env::Env(Env *parent)
+void Env::set(const std::string &name, Fptr function) {
+    symbols[name].function = function;
+}
+
+Env::Env(EnvPtr parent)
     : parent(parent) {
 
     // XXX This shouldn't be here.
@@ -42,22 +46,22 @@ Env::Env(Env *parent)
             // nilExpr->getCar() = nilExpr;
             // nilExpr->getCdr() = nilExpr;
             auto nilExpr = std::make_shared<SymbolExpr>("nil");
-            sym.asExpr = nilExpr;
-            sym.asFunction = nullptr;
+            sym.expr = nilExpr;
+            sym.function = nullptr;
             set("nil", sym);
         }
         {
             Symbol sym;
             auto expr = std::make_shared<SymbolExpr>("t");
-            sym.asExpr = expr;
-            sym.asFunction = nullptr;
+            sym.expr = expr;
+            sym.function = nullptr;
             set("t", sym);
         }
         {
             Symbol sym;
             auto expr = std::make_shared<NumericExpr>(539);
-            sym.asExpr = expr;
-            sym.asFunction = nullptr;
+            sym.expr = expr;
+            sym.function = nullptr;
             set("*magic*", sym);
         }
     }

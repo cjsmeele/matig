@@ -18,4 +18,4 @@
  *
  * \return The evaluation result
  */
-Eptr eval(Expr &expr, Env &env);
+Eptr eval(Eptr expr, EnvPtr env);
