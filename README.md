@@ -6,6 +6,11 @@ Matig is a Lisp interpreter for the Matig Lisp dialect.
 
 **TODO**
 
+Matig is a work in progress.
+
+See [test.l](test.l) for some language features that are currently
+available.
+
 # License
 
 Matig is distributed under the MIT license. See the file
