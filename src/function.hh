@@ -103,7 +103,7 @@ public:
 
 class FuncLisp : public Func {
 
-    Eptr body;
+    Elist body;
 
     EnvPtr context;
 
@@ -118,14 +118,22 @@ public:
 
         // TODO: bind parameters.
 
-        return body->eval(evalCtx);
+        Eptr result;
+
+        for (auto expr : body)
+            result = expr->eval(evalCtx);
+
+        if (!result)
+            result = std::make_shared<SymbolExpr>("nil");
+
+        return result;
     }
 
     FuncLisp(EnvPtr context,
              const Signature &sig,
              const std::string &doc,
              bool special,
-             Eptr body)
+             Elist body)
         : Func(sig, special, doc),
           body(body),
           context(context)

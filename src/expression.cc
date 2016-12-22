@@ -102,7 +102,7 @@ Eptr ConsExpr::eval(EnvPtr env) {
         throw ProgramError("Evaling non-list cons");
 
     if (car->type() != Type::SYMBOL)
-        throw ProgramError("First list element is not a symbol");
+        throw ProgramError("First list element <"s + car->repr() + "> is not a symbol");
 
     auto symExpr = static_cast<const SymbolExpr*>(car.get());
 

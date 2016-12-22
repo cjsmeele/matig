@@ -6,13 +6,18 @@
 
 (print '(hoi één twee . drie))
 
-(let ((foo 1))
-  (print "outer foo:")
-  (print foo)
-  (let ((foo (+ foo 1)))
-    (print "inner foo:")
-    (print foo))
-  (print "outer foo again:")
-  (print foo))
+(print "Some Fibonacci numbers:")
+(let ((fib-nummers '(1 0)))
+  (let ((fib
+          (lambda ()
+            (set 'fib-nummers
+                 (cons (+ (car fib-nummers)
+                          (car (cdr fib-nummers)))
+                       fib-nummers)))))
+    (fib) (fib) (fib) (fib)
+    (fib) (fib) (fib) (fib)
+    (fib) (fib) (fib) (fib)
+    (fib) (fib) (fib) (fib))
+  (print fib-nummers))
 
 ;; vim: ft=lisp
