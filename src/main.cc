@@ -49,17 +49,53 @@ int main(int argc, char **argv) {
 
     std::string prompt = "\x1b[1;36m" "Matig" "\x1b[0m" "> ";
 
-    if (argc > 1 && std::strcmp(argv[1], "-")) {
-        file.open(argv[1]);
-        if (!file)
-            throw std::runtime_error("Could not open file '"s
-                                     + argv[1] + "' for reading.");
+    bool isRepl = false;
+
+    {
+        auto printUsage = [argv]{
+            std::cerr << "usage: " << argv[0]
+                      << " [-r] [--] [file|-]\n";
+        };
+
+        // Parse arguments.
+        bool dashed = false;
+        for (int i = 1; i < argc; i++) {
+            std::string arg = argv[i];
+
+            if (!dashed && arg == "--") {
+                dashed = true;
+
+            } else if (!dashed && arg == "-r") {
+                isRepl = true;
+
+            } else if (dashed || (arg.length() && arg[0] != '-')) {
+                if (file.is_open()) {
+                    printUsage();
+                    return 1;
+                }
+
+                file.open(arg);
+                if (!file)
+                    throw std::runtime_error("Could not open file '"s
+                                            + arg + "' for reading.");
+            } else if (!dashed && arg == "-"){
+                if (file.is_open()) {
+                    printUsage();
+                    return 1;
+                }
+            } else {
+                printUsage();
+                return 1;
+            }
+        }
     }
+
 
     if (file.is_open())
         in = &file;
 
     bool isInteractive = in == &std::cin && isatty(fileno(stdin));
+    isRepl |= isInteractive;
 
     if (!isInteractive)
         slurpShebang(*in);
@@ -81,7 +117,7 @@ int main(int argc, char **argv) {
             // Eptr result = expr;
             Eptr result = eval(expr, rootEnv);
 
-            if (isInteractive)
+            if (isRepl)
                 print(result);
 
         } catch (ProgramError &e) {

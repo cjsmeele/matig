@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief     Builtin functions.
+ * \brief
  * \author    Chris Smeele
  * \copyright Copyright (c) 2016, Chris Smeele
  * \license   MIT, see LICENSE.
