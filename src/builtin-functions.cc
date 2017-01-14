@@ -23,6 +23,8 @@ void registerBuiltinFunctions(Env &env) {
     //         IMPLEMENTATION
     //     })));
 
+    // Core features {{{
+
     env.setHere("quote", std::make_shared<FuncC>(FuncC(
         { {"thing"} },
         { },
@@ -43,6 +45,35 @@ void registerBuiltinFunctions(Env &env) {
             std::cout << parameters.at(0)->repr() << "\n";
             return std::move(parameters.at(0));
         })));
+
+    env.setHere("doc", std::make_shared<FuncC>(FuncC(
+        { {"symbol"} },
+        { },
+        "",
+        "Get documentation on SYMBOL.",
+        false,
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
+
+            auto expr1 = parameters.at(0);
+            if (expr1->type() != Expr::Type::SYMBOL)
+                throw ProgramError("First parameter to DOC must be a symbol");
+
+            auto symName = static_cast<SymbolExpr*>(expr1.get())->getValue();
+
+            std::string doc = "";
+
+            auto sym = env->lookup(symName);
+            if (sym->type() == Expr::Type::FUNC) {
+                doc = static_cast<FuncExpr*>(sym.get())->getDoc(symName) + "\n";
+            } else {
+                throw LogicError("Unimplemented");
+            }
+
+            return std::make_shared<StringExpr>(doc);
+        })));
+
+    // }}}
+    // Environment manipulation {{{
 
     env.setHere("let", std::make_shared<FuncC>(FuncC(
         { {"decls"} },
@@ -108,24 +139,6 @@ void registerBuiltinFunctions(Env &env) {
             return std::move(result);
         })));
 
-    env.setHere("+", std::make_shared<FuncC>(FuncC(
-        { },
-        { },
-        "rest",
-        "Sum all numerics in REST.",
-        false,
-        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
-            int64_t result = 0;
-            for (const auto &expr : rest) {
-                if (expr.get()->type() != Expr::Type::NUMERIC)
-                    throw ProgramError("Parameter '"s + expr->repr() + "' is not numeric");
-                auto numExpr = static_cast<const NumericExpr*>(expr.get());
-
-                result += numExpr->getValue();
-            }
-            return std::make_shared<NumericExpr>(result);
-        })));
-
     env.setHere("set", std::make_shared<FuncC>(FuncC(
         { {"symbol"},
           { "value", std::make_shared<SymbolExpr>("nil") } },
@@ -147,31 +160,8 @@ void registerBuiltinFunctions(Env &env) {
             return std::move(expr2);
         })));
 
-    env.setHere("doc", std::make_shared<FuncC>(FuncC(
-        { {"symbol"} },
-        { },
-        "",
-        "Get documentation on SYMBOL.",
-        false,
-        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
-
-            auto expr1 = parameters.at(0);
-            if (expr1->type() != Expr::Type::SYMBOL)
-                throw ProgramError("First parameter to DOC must be a symbol");
-
-            auto symName = static_cast<SymbolExpr*>(expr1.get())->getValue();
-
-            std::string doc = "";
-
-            auto sym = env->lookup(symName);
-            if (sym->type() == Expr::Type::FUNC) {
-                doc = static_cast<FuncExpr*>(sym.get())->getDoc(symName) + "\n";
-            } else {
-                throw LogicError("Unimplemented");
-            }
-
-            return std::make_shared<StringExpr>(doc);
-        })));
+    // }}}
+    // Data structures {{{
 
     env.setHere("car", std::make_shared<FuncC>(FuncC(
         { {"cons"} },
@@ -212,6 +202,49 @@ void registerBuiltinFunctions(Env &env) {
             auto cons = static_cast<ConsExpr*>(expr.get());
             return cons->getCdr();
         })));
+
+    env.setHere("cons", std::make_shared<FuncC>(FuncC(
+        { {"car"}, {"cdr"} },
+        { },
+        "",
+        "Create a cons from CAR and CDR.",
+        false,
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
+            return std::make_shared<ConsExpr>(parameters.at(0),
+                                              parameters.at(1));
+        })));
+
+    env.setHere("list", std::make_shared<FuncC>(FuncC(
+        { },
+        { },
+        "rest",
+        "Create a list from REST.",
+        false,
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
+
+            if (parameters.size()) {
+
+                auto rootCons = std::make_shared<ConsExpr>();
+                std::shared_ptr<ConsExpr> currentCons = rootCons;
+
+                for (auto expr : parameters) {
+                    if (currentCons->getCar()) {
+                        currentCons->getCdr() = std::make_shared<ConsExpr>();
+                        currentCons = std::static_pointer_cast<ConsExpr>(currentCons->getCdr());
+                    }
+                    currentCons->getCar() = expr;
+                }
+                currentCons->getCdr() = std::make_shared<SymbolExpr>("nil");
+
+                return std::move(rootCons);
+
+            } else {
+                return std::make_shared<SymbolExpr>("nil");
+            }
+        })));
+
+    // }}}
+    // Functions {{{
 
     env.setHere("lambda", std::make_shared<FuncC>(FuncC(
         { {"params"} },
@@ -294,43 +327,91 @@ void registerBuiltinFunctions(Env &env) {
 
     env.setHere("λ", env.lookup("lambda"));
 
-    env.setHere("list", std::make_shared<FuncC>(FuncC(
+    // }}}
+    // Condional execution {{{
+
+    env.setHere("when", std::make_shared<FuncC>(FuncC(
+        { {"condition"} },
         { },
-        { },
-        "rest",
-        "Create a list from REST.",
-        false,
+        "body",
+        "Evaluate BODY only when CONDITION is non-nil.",
+        true,
         [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
 
-            if (parameters.size()) {
+            Eptr result = nullptr;
 
-                auto rootCons = std::make_shared<ConsExpr>();
-                std::shared_ptr<ConsExpr> currentCons = rootCons;
+            if (!parameters[0]->eval(env)->isNil()) {
+                for (auto &expr : rest)
+                    result = expr->eval(env);
+            }
 
-                for (auto expr : parameters) {
-                    if (currentCons->getCar()) {
-                        currentCons->getCdr() = std::make_shared<ConsExpr>();
-                        currentCons = std::static_pointer_cast<ConsExpr>(currentCons->getCdr());
-                    }
-                    currentCons->getCar() = expr;
-                }
-                currentCons->getCdr() = std::make_shared<SymbolExpr>("nil");
+            if (!result)
+                result = std::make_shared<SymbolExpr>("nil");
 
-                return std::move(rootCons);
+            return std::move(result);
+        })));
 
+    env.setHere("if", std::make_shared<FuncC>(FuncC(
+        { {"condition"},
+          {"true-case"},
+          {"false-case", std::make_shared<SymbolExpr>("nil")} },
+        { },
+        "",
+        "Evaluate TRUE-CASE when CONDITION is non-nil. Evaluate FALSE-CASE otherwise.",
+        true,
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
+
+            Eptr result = nullptr;
+
+            if (parameters[0]->eval(env)->isNil()) {
+                // False case
+                return parameters[2]->eval(env);
             } else {
-                return std::make_shared<SymbolExpr>("nil");
+                // True case
+                return parameters[1]->eval(env);
             }
         })));
 
-    env.setHere("cons", std::make_shared<FuncC>(FuncC(
-        { {"car"}, {"cdr"} },
+    // }}}
+    // Predicates {{{
+
+    env.setHere("zero?", std::make_shared<FuncC>(FuncC(
+        { {"numeric"} },
         { },
         "",
-        "Create a cons from CAR and CDR.",
+        "Return t if NUMERIC equals zero.",
         false,
         [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
-            return std::make_shared<ConsExpr>(parameters.at(0),
-                                              parameters.at(1));
+            if (parameters[0]->type() == Expr::Type::NUMERIC) {
+                auto numExpr = static_cast<NumericExpr*>(parameters[0].get());
+                return numExpr->getValue() == 0
+                    ? std::make_shared<SymbolExpr>("t")
+                    : std::make_shared<SymbolExpr>("nil");
+            } else {
+                throw ProgramError("Parameter to zero? is not numeric");
+            }
         })));
+
+    // }}}
+    // Arithmetic operators {{{
+
+    env.setHere("+", std::make_shared<FuncC>(FuncC(
+        { },
+        { },
+        "rest",
+        "Sum all numerics in REST.",
+        false,
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
+            int64_t result = 0;
+            for (const auto &expr : rest) {
+                if (expr.get()->type() != Expr::Type::NUMERIC)
+                    throw ProgramError("Parameter '"s + expr->repr() + "' is not numeric");
+                auto numExpr = static_cast<const NumericExpr*>(expr.get());
+
+                result += numExpr->getValue();
+            }
+            return std::make_shared<NumericExpr>(result);
+        })));
+
+    // }}}
 }

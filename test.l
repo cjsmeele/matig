@@ -36,4 +36,29 @@
 (foo 1 2 3 4)         ; => 1 2 (3 4)
 (foo 1 2 3 (foo 9) 4) ; => 1 2 (3 14 4)
 
+(let ((Σ +))
+  (print (Σ 1 2 3 4)))
+
+(set 'bark-if-zero
+     (lambda (n)
+       (when (zero? n)
+         (print "Woof, woof!"))))
+
+(bark-if-zero 5)
+(bark-if-zero 0)
+(bark-if-zero 4)
+(bark-if-zero 3)
+(bark-if-zero 0)
+
+(set 'find-zeroes
+     (lambda (n)
+       (if (zero? n)
+         (print "Zero GET.")
+         (print "No zeroes here."))))
+
+(find-zeroes 4)
+(find-zeroes 3)
+(find-zeroes 0)
+(find-zeroes 3)
+
 ;; vim: ft=lisp
