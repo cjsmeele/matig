@@ -8,6 +8,7 @@
 #include "function.hh"
 
 #include <iostream>
+#include <cmath>
 
 void registerBuiltinFunctions(Env &env) {
 
@@ -392,6 +393,23 @@ void registerBuiltinFunctions(Env &env) {
             }
         })));
 
+    env.setHere("one?", std::make_shared<FuncC>(FuncC(
+        { {"numeric"} },
+        { },
+        "",
+        "Return t if NUMERIC equals one.",
+        false,
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
+            if (parameters[0]->type() == Expr::Type::NUMERIC) {
+                auto numExpr = static_cast<NumericExpr*>(parameters[0].get());
+                return numExpr->getValue() == 1
+                    ? std::make_shared<SymbolExpr>("t")
+                    : std::make_shared<SymbolExpr>("nil");
+            } else {
+                throw ProgramError("Parameter to one? is not numeric");
+            }
+        })));
+
     // }}}
     // Arithmetic operators {{{
 
@@ -411,6 +429,77 @@ void registerBuiltinFunctions(Env &env) {
                 result += numExpr->getValue();
             }
             return std::make_shared<NumericExpr>(result);
+        })));
+
+    env.setHere("-", std::make_shared<FuncC>(FuncC(
+        { {"num"} },
+        { },
+        "rest",
+        "Negate NUM, or, when REST is given, subtract all of REST from NUM.",
+        false,
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
+
+            if (parameters[0]->type() != Expr::Type::NUMERIC)
+                throw ProgramError("Parameter to - is not numeric");
+
+            auto numExpr = static_cast<NumericExpr*>(parameters[0].get());
+
+            int64_t result = numExpr->getValue();
+
+            if (rest.size()) {
+                for (auto expr : rest) {
+                    if (expr->type() != Expr::Type::NUMERIC)
+                        throw ProgramError("Parameter to - is not numeric");
+
+                    auto numExpr = static_cast<NumericExpr*>(expr.get());
+                    result -= numExpr->getValue();
+                }
+            } else {
+                result = -result;
+            }
+
+            return std::make_shared<NumericExpr>(result);
+        })));
+
+    env.setHere("*", std::make_shared<FuncC>(FuncC(
+        { },
+        { },
+        "rest",
+        "Return the product of REST.",
+        false,
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
+
+            int64_t result = 1;
+
+            for (auto expr : rest) {
+                if (expr->type() != Expr::Type::NUMERIC)
+                    throw ProgramError("Parameter to * is not numeric");
+
+                auto numExpr = static_cast<NumericExpr*>(expr.get());
+                result *= numExpr->getValue();
+            }
+
+            return std::make_shared<NumericExpr>(result);
+        })));
+
+    env.setHere("**", std::make_shared<FuncC>(FuncC(
+        { {"x"}, {"y"} },
+        { },
+        "",
+        "Raise X to the Yth power.",
+        false,
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
+
+            if (parameters[0]->type() != Expr::Type::NUMERIC)
+                throw ProgramError("Parameter to ** is not numeric");
+            auto numExpr1 = static_cast<NumericExpr*>(parameters[0].get());
+
+            if (parameters[1]->type() != Expr::Type::NUMERIC)
+                throw ProgramError("Parameter to ** is not numeric");
+            auto numExpr2 = static_cast<NumericExpr*>(parameters[1].get());
+
+            return std::make_shared<NumericExpr>(
+                std::pow(numExpr1->getValue(), numExpr2->getValue()));
         })));
 
     // }}}

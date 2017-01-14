@@ -6,20 +6,6 @@
 
 (print '(hoi één twee . drie))
 
-(print "Some Fibonacci numbers:")
-(let ((fib-nummers '(1 0)))
-  (let ((fib
-          (lambda ()
-            (set 'fib-nummers
-                 (cons (+ (car fib-nummers)
-                          (car (cdr fib-nummers)))
-                       fib-nummers)))))
-    (fib) (fib) (fib) (fib)
-    (fib) (fib) (fib) (fib)
-    (fib) (fib) (fib) (fib)
-    (fib) (fib) (fib) (fib))
-  (print fib-nummers))
-
 (set 'foo
      (lambda
        (x (y 5) &rest z)
@@ -60,5 +46,23 @@
 (find-zeroes 3)
 (find-zeroes 0)
 (find-zeroes 3)
+
+(set 'factorial
+     (lambda (n)
+       (if (one? n)
+         n
+         (* n (factorial (- n 1))))))
+
+(print "Factorial of 5:")
+(print (factorial 5))
+
+(set 'fibonacci
+     (lambda (count (a 0) (b 1))
+       (if (zero? count)
+         (cons a nil)
+         (cons a (fibonacci (- count 1) b (+ a b))))))
+
+(print "Fibonacci numbers 1 to 20:")
+(print (fibonacci 19))
 
 ;; vim: ft=lisp
