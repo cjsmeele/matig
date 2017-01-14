@@ -130,7 +130,7 @@ Eptr ConsExpr::eval(EnvPtr env) {
                 parameters.push_back(std::move(cons->car->eval(env)));
     }
 
-    return (*func)(std::move(parameters), env);
+    return func->call(std::move(parameters), env);
 }
 
 ConsExpr::Iterator<ConsExpr>       ConsExpr::begin()       { return Iterator<ConsExpr>{this};    }

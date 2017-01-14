@@ -22,7 +22,7 @@ public:
     std::string repr() const override;
     Eptr eval(EnvPtr env) override;
 
-    std::string getDoc() const;
+    std::string getDoc(const std::string &exprName) const;
 
     Fptr getValue() { return func; }
 
@@ -47,7 +47,14 @@ public:
 
     struct Signature {
         std::vector<ParamSpec> positional;
+        std::vector<ParamSpec> keyValue;
         std::string rest;
+
+        bool haveRest() const { return rest.length(); }
+
+        Signature(std::vector<ParamSpec> positional = { },
+                  std::vector<ParamSpec> keyValue = { },
+                  std::string rest = "");
     };
 
 private:
@@ -57,15 +64,20 @@ private:
 
     std::unique_ptr<Env> env;
 
+protected:
+    virtual Eptr operator()(Elist  positional,
+                            Emap   keyValue,
+                            Elist  rest,
+                            EnvPtr env) const = 0;
+
 public:
     bool isSpecial() const { return special; }
-    std::string getDoc() const {
-        // TODO: Prepend synopsis based on signature?
-        return doc;
+    std::string getSynopsis(const std::string &exprName = "<func>") const;
+    std::string getDoc(const std::string &exprName = "<func>") const {
+        return getSynopsis(exprName) + "\n" + doc;
     }
 
-    virtual Eptr operator()(std::vector<Eptr> parameters,
-                            EnvPtr env) const = 0;
+    Eptr call(Elist parameters, EnvPtr env) const;
 
     Func(const Signature &signature,
          bool special,
@@ -78,23 +90,29 @@ public:
 
 class FuncC : public Func {
 
-    typedef std::function<Eptr(std::vector<Eptr>, EnvPtr)> Ftype;
+    typedef std::function<Eptr(Elist,
+                               Emap,
+                               Elist,
+                               EnvPtr)> Ftype;
 
     Ftype func;
 
 public:
-    Eptr operator()(std::vector<Eptr> parameters,
-                    EnvPtr env) const {
+    Eptr operator()(Elist  positional,
+                    Emap   keyValue,
+                    Elist  rest,
+                    EnvPtr env) const override {
 
-        return func(std::move(parameters), env);
+        return func(positional, keyValue, rest, env);
     }
 
-    FuncC(const std::vector<ParamSpec> &parameters,
+    FuncC(const std::vector<ParamSpec> &positional,
+          const std::vector<ParamSpec> &keyValue,
           const std::string &restName,
           const std::string &doc,
           bool special,
           Ftype func)
-        : Func(Signature{parameters, restName},
+        : Func(Signature{positional, keyValue, restName},
                special,
                doc),
           func(func)
@@ -108,15 +126,17 @@ class FuncLisp : public Func {
     EnvPtr context;
 
 public:
-    Eptr operator()(std::vector<Eptr> parameters,
-                    EnvPtr env) const {
+    Eptr operator()(Elist  positional,
+                    Emap   keyValue,
+                    Elist  rest,
+                    EnvPtr env) const override {
 
         if (!context)
             throw LogicError("Null Lisp function context");
 
         EnvPtr evalCtx = std::make_shared<Env>(context);
 
-        // TODO: bind parameters.
+        // TODO: make env and bind parameters.
 
         Eptr result;
 

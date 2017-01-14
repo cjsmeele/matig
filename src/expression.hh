@@ -11,10 +11,12 @@
 #include "environment.hh"
 
 #include <vector>
+#include <unordered_map>
 
 class Expr;
 typedef std::shared_ptr<Expr> Eptr;
 typedef std::vector<Eptr> Elist;
+typedef std::unordered_map<std::string, Eptr> Emap;
 
 /**
  * \brief S-Expression type.
@@ -59,7 +61,7 @@ public:
      *
      * \return A string describing the expression.
      */
-    virtual std::string getDoc() const { return ""; };
+    virtual std::string getDoc(const std::string &exprName) const { return ""; };
 
     virtual ~Expr() = default;
 };

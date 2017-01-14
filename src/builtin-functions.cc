@@ -11,28 +11,46 @@
 
 void registerBuiltinFunctions(Env &env) {
 
+    // env.setHere(FUNCTION_NAME, std::make_shared<FuncC>(FuncC(
+    //     {{ POSITIONAL_PARAM_NAME },
+    //      { POSITIONAL_PARAM_NAME, DEFAULT_VALUE }},
+    //     {{ KEYVALUE_PARAM_NAME }},
+    //      { KEYVALUE_PARAM_NAME, DEFAULT_VALUE }},
+    //     REST_PARAM_NAME, // empty string => no rest allowed
+    //     DOC_STRING,
+    //     SPECIAL_BOOL,
+    //     [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
+    //         IMPLEMENTATION
+    //     })));
+
     env.setHere("quote", std::make_shared<FuncC>(FuncC(
-        { {"thing"} }, "",
+        { {"thing"} },
+        { },
+        "",
         "Return expression THING without evaluating it.",
         true,
-        [](Elist parameters, EnvPtr env) {
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
             return std::move(parameters.at(0));
         })));
 
     env.setHere("print", std::make_shared<FuncC>(FuncC(
-        { {"thing"} }, "",
+        { {"thing"} },
+        { },
+        "",
         "Print the textual representation of THING and return it.",
         false,
-        [](Elist parameters, EnvPtr env) {
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
             std::cout << parameters.at(0)->repr() << "\n";
             return std::move(parameters.at(0));
         })));
     
     env.setHere("let", std::make_shared<FuncC>(FuncC(
-        { {"decls"} }, "body",
+        { {"decls"} },
+        { },
+        "body",
         "Bind DECLS in a new environment, and evaluate BODY in the new environment.",
         true,
-        [](Elist parameters, EnvPtr env) {
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
 
             // The environment in which we will eval our body.
             auto subEnv = std::make_shared<Env>(env);
@@ -81,10 +99,8 @@ void registerBuiltinFunctions(Env &env) {
             Eptr result = nullptr;
 
             // Evaluate body.
-            if (parameters.size() > 1) {
-                for (auto it = parameters.begin()+1; it != parameters.end(); ++it)
-                    result = (*it)->eval(subEnv);
-            }
+            for (auto &expr : rest)
+                result = expr->eval(subEnv);
 
             if (!result)
                 result = std::make_shared<SymbolExpr>("nil");
@@ -93,12 +109,14 @@ void registerBuiltinFunctions(Env &env) {
         })));
 
     env.setHere("+", std::make_shared<FuncC>(FuncC(
-        { }, "rest",
+        { },
+        { },
+        "rest",
         "Sum all numerics in REST.",
         false,
-        [](Elist parameters, EnvPtr env) {
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
             int64_t result = 0;
-            for (const auto &expr : parameters) {
+            for (const auto &expr : rest) {
                 if (expr.get()->type() != Expr::Type::NUMERIC)
                     throw ProgramError("Parameter '"s + expr->repr() + "' is not numeric");
                 auto numExpr = static_cast<const NumericExpr*>(expr.get());
@@ -111,10 +129,11 @@ void registerBuiltinFunctions(Env &env) {
     env.setHere("set", std::make_shared<FuncC>(FuncC(
         { {"symbol"},
           { "value", std::make_shared<SymbolExpr>("nil") } },
+        { },
         "",
         "Set SYMBOL to VALUE, return VALUE.",
         false,
-        [](Elist parameters, EnvPtr env) {
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
 
             auto expr1 = parameters.at(0);
             auto expr2 = parameters.at(1);
@@ -130,18 +149,21 @@ void registerBuiltinFunctions(Env &env) {
 
     env.setHere("doc", std::make_shared<FuncC>(FuncC(
         { {"symbol"} },
+        { },
         "",
         "Print documentation on SYMBOL.",
         false,
-        [](Elist parameters, EnvPtr env) {
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
 
             auto expr1 = parameters.at(0);
             if (expr1->type() != Expr::Type::SYMBOL)
                 throw ProgramError("First parameter to DOC must be a symbol");
 
-            auto sym = env->lookup(static_cast<SymbolExpr*>(expr1.get())->getValue());
+            auto symName = static_cast<SymbolExpr*>(expr1.get())->getValue();
+
+            auto sym = env->lookup(symName);
             if (sym->type() == Expr::Type::FUNC) {
-                std::cout << static_cast<FuncExpr*>(sym.get())->getDoc() << "\n";
+                std::cout << static_cast<FuncExpr*>(sym.get())->getDoc(symName) << "\n";
             } else {
                 throw LogicError("Unimplemented");
             }
@@ -151,10 +173,11 @@ void registerBuiltinFunctions(Env &env) {
 
     env.setHere("car", std::make_shared<FuncC>(FuncC(
         { {"cons"} },
+        { },
         "",
         "Return the car of CONS.",
         false,
-        [](Elist parameters, EnvPtr env) {
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
 
             auto expr = parameters.at(0);
             if (expr->type() != Expr::Type::CONS)
@@ -166,10 +189,11 @@ void registerBuiltinFunctions(Env &env) {
 
     env.setHere("cdr", std::make_shared<FuncC>(FuncC(
         { {"cons"} },
+        { },
         "",
         "Return the cdr of CONS.",
         false,
-        [](Elist parameters, EnvPtr env) {
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
 
             auto expr = parameters.at(0);
             if (expr->type() != Expr::Type::CONS)
@@ -181,10 +205,11 @@ void registerBuiltinFunctions(Env &env) {
 
     env.setHere("lambda", std::make_shared<FuncC>(FuncC(
         { {"params"} },
+        { },
         "body",
         "Create an anonymous function.",
         true,
-        [](Elist parameters, EnvPtr env) {
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
 
             Func::Signature signature;
 
@@ -198,14 +223,8 @@ void registerBuiltinFunctions(Env &env) {
                     throw ProgramError("First parameter to LAMBDA must be a list");
             }
 
-            Elist body;
-            body.resize(parameters.size() - 1);
-            std::move(parameters.begin() + 1,
-                      parameters.end(),
-                      body.begin());
-
             return std::make_shared<FuncExpr>(
-                std::make_shared<FuncLisp>(env, signature, "", false, body));
+                std::make_shared<FuncLisp>(env, signature, "", false, rest));
 
         })));
 
@@ -213,10 +232,11 @@ void registerBuiltinFunctions(Env &env) {
 
     env.setHere("list", std::make_shared<FuncC>(FuncC(
         { },
+        { },
         "rest",
         "Create a list from REST.",
         false,
-        [](Elist parameters, EnvPtr env) -> Eptr {
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
 
             if (parameters.size()) {
 
@@ -241,10 +261,11 @@ void registerBuiltinFunctions(Env &env) {
 
     env.setHere("cons", std::make_shared<FuncC>(FuncC(
         { {"car"}, {"cdr"} },
+        { },
         "",
         "Create a cons from CAR and CDR.",
         false,
-        [](Elist parameters, EnvPtr env) -> Eptr {
+        [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
             return std::make_shared<ConsExpr>(parameters.at(0),
                                               parameters.at(1));
         })));
