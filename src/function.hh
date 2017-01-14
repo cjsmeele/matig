@@ -2,7 +2,7 @@
  * \file
  * \brief     Function types.
  * \author    Chris Smeele
- * \copyright Copyright (c) 2016, Chris Smeele
+ * \copyright Copyright (c) 2016, 2017, Chris Smeele
  * \license   MIT, see LICENSE.
  */
 #pragma once
@@ -72,6 +72,8 @@ protected:
 
 public:
     bool isSpecial() const { return special; }
+    const Signature &getSignature() const { return signature; }
+
     std::string getSynopsis(const std::string &exprName = "<func>") const;
     std::string getDoc(const std::string &exprName = "<func>") const {
         return getSynopsis(exprName) + "\n" + doc;
@@ -90,10 +92,7 @@ public:
 
 class FuncC : public Func {
 
-    typedef std::function<Eptr(Elist,
-                               Emap,
-                               Elist,
-                               EnvPtr)> Ftype;
+    typedef std::function<Eptr(Elist, Emap, Elist, EnvPtr)> Ftype;
 
     Ftype func;
 
@@ -129,25 +128,7 @@ public:
     Eptr operator()(Elist  positional,
                     Emap   keyValue,
                     Elist  rest,
-                    EnvPtr env) const override {
-
-        if (!context)
-            throw LogicError("Null Lisp function context");
-
-        EnvPtr evalCtx = std::make_shared<Env>(context);
-
-        // TODO: make env and bind parameters.
-
-        Eptr result;
-
-        for (auto expr : body)
-            result = expr->eval(evalCtx);
-
-        if (!result)
-            result = std::make_shared<SymbolExpr>("nil");
-
-        return result;
-    }
+                    EnvPtr env) const override;
 
     FuncLisp(EnvPtr context,
              const Signature &sig,

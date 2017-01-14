@@ -20,4 +20,20 @@
     (fib) (fib) (fib) (fib))
   (print fib-nummers))
 
+(set 'foo
+     (lambda
+       (x (y 5) &rest z)
+       (print "-- in foo --")
+       (print x)
+       (print y)
+       (print z)
+       (+ x y)))
+
+(foo)                 ; This is an error.
+(foo 1)               ; => 1 5 nil
+(foo 1 2)             ; => 1 2 nil
+(foo 1 2 3)           ; => 1 2 (3)
+(foo 1 2 3 4)         ; => 1 2 (3 4)
+(foo 1 2 3 (foo 9) 4) ; => 1 2 (3 14 4)
+
 ;; vim: ft=lisp

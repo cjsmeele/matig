@@ -2,7 +2,7 @@
  * \file
  * \brief
  * \author    Chris Smeele
- * \copyright Copyright (c) 2016, Chris Smeele
+ * \copyright Copyright (c) 2016, 2017, Chris Smeele
  * \license   MIT, see LICENSE.
  */
 #include "expression.hh"
@@ -39,12 +39,45 @@ bool ConsExpr::isList() const {
     return true;
 }
 
-std::vector<Eptr> ConsExpr::asList() {
+Elist ConsExpr::asList() {
     std::vector<Eptr> list;
     for (const auto &cons : *this)
         list.push_back(cons->car);
 
     return std::move(list);
+}
+
+Eptr ConsExpr::fromList(const Elist &list) {
+
+    if (!list.size())
+        return std::move(std::make_shared<SymbolExpr>("nil"));
+
+    auto rootCons = std::make_shared<ConsExpr>();
+    std::shared_ptr<ConsExpr> currentCons = rootCons;
+
+    for (auto &expr : list) {
+        if (currentCons->getCar()) {
+            currentCons->getCdr() = std::make_shared<ConsExpr>();
+            currentCons = std::static_pointer_cast<ConsExpr>(currentCons->getCdr());
+        }
+        currentCons->getCar() = expr;
+    }
+    currentCons->getCdr() = std::make_shared<SymbolExpr>("nil");
+
+    if (!currentCons->getCar())
+        currentCons->getCdr() = std::make_shared<SymbolExpr>("nil");
+
+    return std::move(rootCons);
+}
+
+Eptr ConsExpr::operator[](size_t i) const {
+    size_t j = 0;
+    for (const auto &cons : *this) {
+        if (j == i)
+            return cons->car;
+        j++;
+    }
+    throw LogicError("Cons list index out of range");
 }
 
 std::string ConsExpr::repr() const {
@@ -121,13 +154,8 @@ Eptr ConsExpr::eval(EnvPtr env) {
         // Since this->isListItem(), cdr must be a cons.
         const ConsExpr *paramsCons = static_cast<ConsExpr*>(cdr.get());
 
-        // Only evaluate car if this isn't a special form / macro.
-        if (func->isSpecial())
-            for (const ConsExpr *cons : *paramsCons)
-                parameters.push_back(std::move(cons->car));
-        else
-            for (const ConsExpr *cons : *paramsCons)
-                parameters.push_back(std::move(cons->car->eval(env)));
+        for (const ConsExpr *cons : *paramsCons)
+            parameters.push_back(std::move(cons->car));
     }
 
     return func->call(std::move(parameters), env);

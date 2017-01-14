@@ -2,7 +2,7 @@
  * \file
  * \brief     Builtin functions.
  * \author    Chris Smeele
- * \copyright Copyright (c) 2016, Chris Smeele
+ * \copyright Copyright (c) 2016, 2017, Chris Smeele
  * \license   MIT, see LICENSE.
  */
 #include "function.hh"
@@ -43,7 +43,7 @@ void registerBuiltinFunctions(Env &env) {
             std::cout << parameters.at(0)->repr() << "\n";
             return std::move(parameters.at(0));
         })));
-    
+
     env.setHere("let", std::make_shared<FuncC>(FuncC(
         { {"decls"} },
         { },
@@ -151,7 +151,7 @@ void registerBuiltinFunctions(Env &env) {
         { {"symbol"} },
         { },
         "",
-        "Print documentation on SYMBOL.",
+        "Get documentation on SYMBOL.",
         false,
         [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
 
@@ -161,14 +161,16 @@ void registerBuiltinFunctions(Env &env) {
 
             auto symName = static_cast<SymbolExpr*>(expr1.get())->getValue();
 
+            std::string doc = "";
+
             auto sym = env->lookup(symName);
             if (sym->type() == Expr::Type::FUNC) {
-                std::cout << static_cast<FuncExpr*>(sym.get())->getDoc(symName) << "\n";
+                doc = static_cast<FuncExpr*>(sym.get())->getDoc(symName) + "\n";
             } else {
                 throw LogicError("Unimplemented");
             }
 
-            return std::make_shared<SymbolExpr>("nil");
+            return std::make_shared<StringExpr>(doc);
         })));
 
     env.setHere("car", std::make_shared<FuncC>(FuncC(
@@ -180,6 +182,10 @@ void registerBuiltinFunctions(Env &env) {
         [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
 
             auto expr = parameters.at(0);
+
+            if (expr->isNil())
+                return std::make_shared<SymbolExpr>("nil");
+
             if (expr->type() != Expr::Type::CONS)
                 throw ProgramError("First parameter to CAR must be a cons");
 
@@ -196,6 +202,10 @@ void registerBuiltinFunctions(Env &env) {
         [](Elist parameters, Emap kv, Elist rest, EnvPtr env) -> Eptr {
 
             auto expr = parameters.at(0);
+
+            if (expr->isNil())
+                return std::make_shared<SymbolExpr>("nil");
+
             if (expr->type() != Expr::Type::CONS)
                 throw ProgramError("First parameter to CAR must be a cons");
 
@@ -213,7 +223,11 @@ void registerBuiltinFunctions(Env &env) {
 
             Func::Signature signature;
 
-            auto paramsExpr = parameters.at(0);
+            std::string doc = "";
+            Eptr paramsExpr;
+
+            paramsExpr = parameters.at(0);
+
             if (!paramsExpr->isNil()) {
                 if (paramsExpr->type() != Expr::Type::CONS)
                     throw ProgramError("First parameter to LAMBDA must be a cons");
@@ -221,6 +235,56 @@ void registerBuiltinFunctions(Env &env) {
                 auto paramsCons = static_cast<ConsExpr*>(paramsExpr.get());
                 if (!paramsCons->isList())
                     throw ProgramError("First parameter to LAMBDA must be a list");
+
+                bool haveDefault = false; // Whether we have encountered a param with default value.
+                bool haveRest    = false; // Whether we have encountered '&rest'.
+
+                for (ConsExpr *pexpr : *paramsCons) {
+                    Eptr car = pexpr->getCar();
+
+                    if (haveRest && signature.haveRest())
+                        // More parameters after a &rest name. Bad.
+                        throw ProgramError("Invalid lambda param spec");
+
+                    // (NAME DEFAULT)
+                    if (!haveRest && car->type() == Expr::Type::CONS) {
+                        auto consExpr = static_cast<ConsExpr*>(car.get());
+
+                        if (!consExpr->isList())
+                            throw ProgramError("Invalid lambda param spec");
+
+                        Eptr nameExpr  = (*consExpr)[0];
+                        Eptr valueExpr = (*consExpr)[1]; // Default value.
+
+                        if (nameExpr->type() != Expr::Type::SYMBOL)
+                            throw ProgramError("Invalid lambda param spec");
+
+                        auto symExpr = static_cast<SymbolExpr*>(nameExpr.get());
+
+                        signature.positional.emplace_back(symExpr->getValue(), valueExpr);
+
+                        haveDefault = true;
+
+                    } else if (car->type() == Expr::Type::SYMBOL) {
+                        auto symExpr = static_cast<SymbolExpr*>(car.get());
+
+                        const std::string &name = symExpr->getValue();
+
+                        if (haveRest) {
+                            signature.rest = name;
+                        } else {
+                            if (name == "&rest") {
+                                haveRest = true;
+                            } else {
+                                if (haveDefault)
+                                    throw ProgramError("Invalid lambda param spec");
+                                signature.positional.emplace_back(symExpr->getValue());
+                            }
+                        }
+                    } else {
+                        throw ProgramError("Invalid lambda param spec");
+                    }
+                }
             }
 
             return std::make_shared<FuncExpr>(

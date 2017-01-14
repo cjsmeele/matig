@@ -2,7 +2,7 @@
  * \file
  * \brief
  * \author    Chris Smeele
- * \copyright Copyright (c) 2016, Chris Smeele
+ * \copyright Copyright (c) 2016, 2017, Chris Smeele
  * \license   MIT, see LICENSE.
  */
 #include "function.hh"
@@ -47,7 +47,22 @@ std::string Func::getSynopsis(const std::string &exprName) const {
                        name.end(),
                        name.begin(),
                        toupper);
-        s += " " + name;
+
+        if (p.defaultValue) {
+            s += " (" + name + " " + p.defaultValue->repr() + ")";
+        } else {
+            s += " " + name;
+        }
+    }
+
+    if (signature.haveRest()) {
+        auto name = signature.rest;
+        std::transform(name.begin(),
+                       name.end(),
+                       name.begin(),
+                       toupper);
+
+        s += " &rest " + name;
     }
 
     return s + ")";
@@ -67,7 +82,7 @@ Eptr Func::call(Elist parametersIn, EnvPtr env) const {
     if (parametersIn.size() < (size_t)minPositional)
         throw ProgramError("Function expects at least "s
                            + std::to_string(minPositional)
-                           + (minPositional == 1 ? " parameter, " :" parametersIn, ")
+                           + (minPositional == 1 ? " parameter, " :" parameters, ")
                            + std::to_string(parametersIn.size())
                            + " given");
 
@@ -76,7 +91,7 @@ Eptr Func::call(Elist parametersIn, EnvPtr env) const {
 
         throw ProgramError("Function expects at most "s
                            + std::to_string(maxPositional)
-                           + (maxPositional == 1 ? " parameter, " : " parametersIn, ")
+                           + (maxPositional == 1 ? " parameter, " : " parameters, ")
                            + std::to_string(parametersIn.size())
                            + " given");
 
@@ -85,19 +100,59 @@ Eptr Func::call(Elist parametersIn, EnvPtr env) const {
     Elist rest;
 
     for (unsigned i = 0; i < maxPositional; i++) {
-        if (i < parametersIn.size()) {
-            positionals.push_back(parametersIn[i]);
-        } else {
-            // Fill in optional parameters.
-            positionals.push_back(signature.positional[0].defaultValue);
-        }
+        auto value = i < parametersIn.size()
+                         ? isSpecial()
+                             ? parametersIn[i]
+                             : parametersIn[i]->eval(env)
+                         // Default parameter values are always evaluated.
+                         : signature.positional[i].defaultValue;
+
+        if (!value)
+            value = std::make_shared<SymbolExpr>("nil");
+
+        positionals.push_back(value);
     }
 
     // TODO: Key-value parameters.
 
     for (unsigned i = positionals.size(); i < parametersIn.size(); i++) {
-        rest.push_back(parametersIn[i]);
+        rest.push_back(isSpecial()
+                       ? parametersIn[i]
+                       : parametersIn[i]->eval(env));
     }
 
     return (*this)(positionals, keyValues, rest, env);
+}
+
+
+Eptr FuncLisp::operator()(Elist  positional,
+                          Emap   keyValue,
+                          Elist  rest,
+                          EnvPtr env) const {
+
+    if (!context)
+        throw LogicError("Null Lisp function context");
+
+    EnvPtr evalCtx = std::make_shared<Env>(context);
+
+    auto sig = getSignature();
+    for (unsigned i = 0; i < sig.positional.size(); i++) {
+        // Set positional parameters in env.
+        evalCtx->setHere(sig.positional[i].name, positional[i]);
+    }
+
+    if (sig.haveRest()) {
+        // Set rest.
+        evalCtx->setHere(sig.rest, ConsExpr::fromList(rest));
+    }
+
+    Eptr result;
+
+    for (auto expr : body)
+        result = expr->eval(evalCtx);
+
+    if (!result)
+        result = std::make_shared<SymbolExpr>("nil");
+
+    return result;
 }

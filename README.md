@@ -1,6 +1,6 @@
 # Matig
 
-Matig is a Lisp interpreter for the Matig Lisp dialect.
+Matig is an interpreter for the Lisp-like Matig language.
 
 # Language features
 

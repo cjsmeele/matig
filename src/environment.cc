@@ -8,9 +8,6 @@
 #include "environment.hh"
 #include "function.hh"
 
-#include <iostream>
-
-
 void Env::setHere(const std::string &name, Eptr expr) {
     symbols[name] = expr;
 }

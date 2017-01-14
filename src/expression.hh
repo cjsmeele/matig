@@ -2,7 +2,7 @@
  * \file
  * \brief     Expression classes.
  * \author    Chris Smeele
- * \copyright Copyright (c) 2016, Chris Smeele
+ * \copyright Copyright (c) 2016, 2017, Chris Smeele
  * \license   MIT, see LICENSE.
  */
 #pragma once
@@ -218,12 +218,17 @@ public:
      */
     bool isList() const;
 
-    std::vector<Eptr> asList();
+    Elist asList();
+
+    static Eptr fromList(const Elist &list);
+
 
     const Eptr &getCar() const { return car; }
           Eptr &getCar()       { return car; }
     const Eptr &getCdr() const { return cdr; }
           Eptr &getCdr()       { return cdr; }
+
+    Eptr operator[](size_t i) const;
 
     Eptr eval(EnvPtr env) override;
 
